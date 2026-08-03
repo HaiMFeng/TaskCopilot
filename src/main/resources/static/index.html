@@ -47,15 +47,6 @@
                 <p class="pane-hint">列表随运行时间自动排序，拖拽可调整顺序。</p>
                 <ul id="taskList" class="task-list"></ul>
                 <div id="taskListEmpty" class="empty-hint hidden">该日程表下暂无任务</div>
-                <div id="resultBox" class="result-box hidden">
-                    <div class="result-head">
-                        <span class="section-title">上次运行结果</span>
-                        <span id="resultBadge" class="result-badge"></span>
-                        <span id="resultMeta" class="result-meta"></span>
-                    </div>
-                    <pre id="resultOutput" class="result-output"></pre>
-                    <button type="button" id="btnViewHistory" class="btn-ghost btn-sm">查看完整历史</button>
-                </div>
             </aside>
 
             <section class="task-detail-pane">
@@ -107,12 +98,17 @@
                         <span id="detailNext">下次执行：—</span>
                         <span id="detailLast">最近执行：—</span>
                     </div>
+                    <div id="resultBox" class="result-box hidden">
+                        <div class="result-head">
+                            <span class="section-title">上次运行结果</span>
+                            <span id="resultBadge" class="result-badge"></span>
+                            <span id="resultMeta" class="result-meta"></span>
+                        </div>
+                        <pre id="resultOutput" class="result-output"></pre>
+                        <button type="button" id="btnViewHistory" class="btn-ghost btn-sm">查看完整历史</button>
+                    </div>
                     <button type="button" id="btnDeleteTask" class="btn-danger-ghost">删除任务</button>
                 </form>
-                <div id="logBox" class="log-box hidden">
-                    <div class="log-head">最近一次执行输出</div>
-                    <pre id="logContent"></pre>
-                </div>
             </section>
         </div>
     </section>

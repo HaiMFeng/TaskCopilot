@@ -258,7 +258,6 @@ async function selectTask(id) {
     $('#f_remark').value = task.remark || '';
     $('#detailNext').textContent = '下次执行：' + fmtTime(task.nextExecutionAt);
     $('#detailLast').textContent = '最近执行：' + fmtTime(task.lastExecutedAt) + (task.lastStatus ? `（${task.lastStatus === 'SUCCESS' ? '成功' : '失败'}）` : '');
-    $('#logBox').classList.add('hidden');
     renderLastResult(task);
     renderConfigFields(task.typeCode, task.config || {});
 }
@@ -367,8 +366,7 @@ async function runTask() {
         selectTask(id);
         const task = state.tasks.find((t) => t.id === id);
         renderLastResult(task);
-        $('#logBox').classList.remove('hidden');
-        $('#logContent').textContent = `退出码：${log.exitCode}\n状态：${log.status}\n\n--- stdout ---\n${log.stdout || ''}\n--- stderr ---\n${log.stderr || ''}`;
+        $('#resultOutput').scrollIntoView({behavior: 'smooth', block: 'nearest'});
     } catch (e) {
         toast(e.message, true);
     }
@@ -390,9 +388,10 @@ async function viewHistory() {
             ].filter(Boolean).join('\n');
             return head + (out ? '\n' + out : '');
         }).join('\n\n' + '─'.repeat(40) + '\n\n');
-        $('#logBox').classList.remove('hidden');
-        $('#logContent').textContent = text;
-        $('#logContent').scrollIntoView({behavior: 'smooth', block: 'nearest'});
+        $('#resultBox').classList.remove('hidden');
+        $('#resultOutput').textContent = text;
+        $('#resultOutput').classList.remove('has-error');
+        $('#resultOutput').scrollIntoView({behavior: 'smooth', block: 'nearest'});
     } catch (e) {
         toast(e.message, true);
     }

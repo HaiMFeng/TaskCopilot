@@ -253,11 +253,7 @@ body {
 .config-fields { display: flex; flex-direction: column; gap: 14px; padding: 12px; background: var(--bg-raised); border: 1px dashed var(--border); border-radius: 10px; }
 .detail-meta { display: flex; gap: 18px; font-size: 12px; color: var(--text-dim); flex-wrap: wrap; }
 
-.log-box { margin-top: 18px; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
-.log-head { background: var(--bg-raised); padding: 8px 12px; font-size: 12px; color: var(--text-dim); border-bottom: 1px solid var(--border); }
-.log-box pre { margin: 0; padding: 12px; font-size: 13px; white-space: pre-wrap; word-break: break-all; max-height: 240px; overflow-y: auto; background: #0c0e12; }
-
-/* ---------- 上次运行结果（位于任务列表下方） ---------- */
+/* ---------- 上次运行结果（位于任务详情内） ---------- */
 .result-box { margin-top: 16px; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: var(--bg-raised); }
 .result-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 10px 12px; border-bottom: 1px solid var(--border); }
 .result-head .section-title { font-size: 13px; font-weight: 600; }

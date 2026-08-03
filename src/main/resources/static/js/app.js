@@ -51,7 +51,87 @@ const ConfigFields = {
             return v;
         };
         const set = (field, v) => emit('update', field.name, v);
-        return {val, set};
+
+        // ----- 应用路径拖放区（appFile 类型） -----
+        const dragOver = ref(false);
+        const checking = ref(false);
+        const checkResult = ref(null); // {exists, isFile, extension, ok}
+
+        const fileName = (field) => {
+            const p = val(field);
+            if (!p) return '';
+            const idx = Math.max(p.lastIndexOf('\\'), p.lastIndexOf('/'));
+            return idx >= 0 ? p.substring(idx + 1) : p;
+        };
+
+        // 从 dataTransfer 解析本地真实路径（浏览器拖入本地文件时携带 file:// URI）
+        function extractLocalPath(dt) {
+            let uri = '';
+            try { uri = dt.getData('text/uri-list') || ''; } catch (e) { /* 某些浏览器禁止读取 */ }
+            if (!uri) {
+                try { uri = dt.getData('text/plain') || ''; } catch (e) {}
+            }
+            if (!uri) return '';
+            // 取第一行，去掉 file:// 前缀并解码
+            const first = uri.split(/\r?\n/)[0].trim();
+            if (first.startsWith('file://')) {
+                let p = first.slice('file://'.length);
+                if (p.startsWith('/') && /^[A-Za-z]:/.test(p.slice(1))) p = p.slice(1);
+                try { p = decodeURIComponent(p); } catch (e) {}
+                return p;
+            }
+            return first;
+        }
+
+        async function verifyPath(field, path) {
+            if (!path) { checkResult.value = null; return; }
+            checking.value = true;
+            try {
+                checkResult.value = await API.checkPath(path);
+            } catch (e) {
+                checkResult.value = null;
+            } finally {
+                checking.value = false;
+            }
+        }
+
+        function onDrop(field, e) {
+            dragOver.value = false;
+            const path = extractLocalPath(e.dataTransfer);
+            if (path) {
+                set(field, path);
+                verifyPath(field, path);
+            }
+        }
+        function onFilePick(field, e) {
+            const f = e.target.files && e.target.files[0];
+            if (!f) return;
+            // 浏览器无法暴露完整路径，仅以文件名提示用户补全
+            set(field, f.name);
+            checkResult.value = {exists: false, isFile: true, extension: (f.name.split('.').pop() || '').toLowerCase(), ok: false};
+            e.target.value = '';
+        }
+        function openPicker(field, e) {
+            const input = e.currentTarget.querySelector('.dz-input');
+            if (input) input.click();
+        }
+
+        // model 被外部替换/加载（如切换任务）时，对 appFile 字段重新校验
+        const { watch, onMounted } = Vue;
+        function verifyAllAppFiles() {
+            (props.schema || []).forEach((f) => {
+                if (f.type === 'appFile') verifyPath(f, val(f));
+            });
+        }
+        watch(() => props.model, () => verifyAllAppFiles(), {deep: true});
+        onMounted(verifyAllAppFiles);
+        function onPathInput(field, v) {
+            set(field, v);
+            verifyPath(field, v);
+        }
+
+        return {val, set, dragOver, checking, checkResult, fileName,
+                onDrop, onFilePick, onPathInput, openPicker};
     },
     template: `
         <div class="config-fields">
@@ -102,7 +182,41 @@ const ConfigFields = {
                           :placeholder="f.help || ''"
                           @update:model-value="v => set(f, v)"/>
 
-                <div v-if="f.help && f.type !== 'text' && f.type !== 'textarea'" class="field-help">{{ f.help }}</div>
+                <template v-if="f.type === 'appFile'">
+                    <div class="dropzone"
+                         :class="{ 'is-over': dragOver, 'is-set': !!fileName(f) }"
+                         @dragover.prevent="dragOver = true"
+                         @dragleave.prevent="dragOver = false"
+                         @drop.prevent="onDrop(f, $event)"
+                         @click="openPicker(f, $event)">
+                        <input type="file" class="dz-input" accept=".exe,.lnk,.bat,.cmd" @change="onFilePick(f, $event)">
+                        <div class="dz-inner">
+                            <div class="dz-icon" :class="{ 'is-set': !!fileName(f) }">
+                                <span v-if="!fileName(f)">⬚</span>
+                                <span v-else>🗎</span>
+                            </div>
+                            <div class="dz-text">
+                                <template v-if="!fileName(f)">
+                                    <div class="dz-title">拖入应用程序</div>
+                                    <div class="dz-sub">支持 .exe / .lnk 快捷方式，或点击选择</div>
+                                </template>
+                                <template v-else>
+                                    <div class="dz-filename">{{ fileName(f) }}</div>
+                                    <div class="dz-state" v-if="checking">校验中…</div>
+                                    <div class="dz-state ok" v-else-if="checkResult && checkResult.ok">✓ 路径有效</div>
+                                    <div class="dz-state bad" v-else-if="checkResult && !checkResult.ok">⚠ 路径不存在或不是文件</div>
+                                    <div class="dz-state" v-else>已选择</div>
+                                </template>
+                            </div>
+                        </div>
+                    </div>
+                    <el-input class="dz-path"
+                              :model-value="val(f)"
+                              placeholder="或手动填写完整路径，例如 C:\Program Files\App\app.exe"
+                              @update:model-value="v => onPathInput(f, v)"/>
+                </template>
+
+                <div v-if="f.help && f.type !== 'text' && f.type !== 'textarea' && f.type !== 'appFile'" class="field-help">{{ f.help }}</div>
             </el-form-item>
         </div>
     `,

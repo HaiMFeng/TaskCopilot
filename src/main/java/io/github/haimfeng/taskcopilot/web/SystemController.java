@@ -66,4 +66,31 @@ public class SystemController {
         taskScheduler.resumeAll();
         return schedulerStatus();
     }
+
+    /**
+     * 校验应用路径是否合法：存在且为文件，并返回扩展名。
+     * 前端在用户拖入/手动填写 .exe/.lnk 路径时用于实时校验。
+     */
+    @PostMapping("/check-path")
+    public Map<String, Object> checkPath(@org.springframework.web.bind.annotation.RequestBody Map<String, Object> body) {
+        String path = body == null ? null : String.valueOf(body.getOrDefault("path", "")).trim();
+        Map<String, Object> result = new LinkedHashMap<>();
+        if (path == null || path.isBlank()) {
+            result.put("exists", false);
+            result.put("isFile", false);
+            result.put("extension", "");
+            result.put("ok", false);
+            return result;
+        }
+        File file = new File(path);
+        boolean exists = file.exists();
+        boolean isFile = file.isFile();
+        String name = file.getName();
+        String ext = name.contains(".") ? name.substring(name.lastIndexOf('.') + 1).toLowerCase() : "";
+        result.put("exists", exists);
+        result.put("isFile", isFile);
+        result.put("extension", ext);
+        result.put("ok", exists && isFile);
+        return result;
+    }
 }

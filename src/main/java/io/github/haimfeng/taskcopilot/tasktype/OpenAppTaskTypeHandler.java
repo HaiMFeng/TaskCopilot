@@ -38,17 +38,7 @@ public class OpenAppTaskTypeHandler implements TaskTypeHandler {
     @Override
     public List<FieldSchema> configSchema() {
         return List.of(
-                FieldSchema.select("appPath", "应用", List.of(
-                        FieldSchema.option("notepad", "记事本"),
-                        FieldSchema.option("calc", "计算器"),
-                        FieldSchema.option("explorer", "文件资源管理器"),
-                        FieldSchema.option("cmd", "命令提示符"),
-                        FieldSchema.option("code", "VS Code"),
-                        FieldSchema.option("chrome", "Google Chrome"),
-                        FieldSchema.option("msedge", "Microsoft Edge"),
-                        FieldSchema.option("", "（自定义路径…）")
-                ), ""),
-                FieldSchema.text("customPath", "自定义路径", false, "当上方选择“自定义路径”时填写，例如 C:\\Program Files\\App\\app.exe"),
+                FieldSchema.appFile("appPath", "应用", "拖入 .exe 程序或 .lnk 快捷方式，也可手动填写完整路径"),
                 FieldSchema.text("args", "启动参数", false, "可选，例如 --new-window"),
                 FieldSchema.time("time", "执行时间", "08:30")
         );
@@ -57,16 +47,14 @@ public class OpenAppTaskTypeHandler implements TaskTypeHandler {
     @Override
     public void validate(Map<String, Object> config) {
         String appPath = str(config, "appPath");
-        String customPath = str(config, "customPath");
-        if (appPath.isBlank() && customPath.isBlank()) {
-            throw new IllegalArgumentException("请选择应用或填写自定义路径");
+        if (appPath.isBlank()) {
+            throw new IllegalArgumentException("请拖入应用或填写应用路径");
         }
     }
 
     @Override
     public String summary(Map<String, Object> config) {
-        String appPath = str(config, "appPath");
-        return "打开应用：" + (appPath.isBlank() ? str(config, "customPath") : appPath);
+        return "打开应用：" + str(config, "appPath");
     }
 
     @Override
@@ -74,8 +62,7 @@ public class OpenAppTaskTypeHandler implements TaskTypeHandler {
             Task task, Map<String, Object> config, CommandExecutor executor) {
         boolean windows = isWindows();
         String appPath = str(config, "appPath");
-        String customPath = str(config, "customPath");
-        String target = appPath.isBlank() ? customPath : appPath;
+        String target = appPath;
         String args = str(config, "args");
         String quoted = '"' + target + '"';
         String command;

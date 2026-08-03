@@ -11,7 +11,7 @@ import java.util.Map;
  *
  * @param name     字段名（对应 configJson 的 key）
  * @param label    显示名称
- * @param type     字段类型：number / text / select / time / boolean
+ * @param type     字段类型：number / text / select / time / boolean / appFile / textarea
  * @param required 是否必填
  * @param defaultValue 默认值，可为 null
  * @param min      数值最小值，可为 null
@@ -49,6 +49,11 @@ public record FieldSchema(
 
     public static FieldSchema textarea(String name, String label, String help) {
         return new FieldSchema(name, label, "textarea", false, null, null, null, null, help);
+    }
+
+    /** 应用路径字段：前端渲染为可拖入 exe/lnk 的拖放区，值存储为文件路径 */
+    public static FieldSchema appFile(String name, String label, String help) {
+        return new FieldSchema(name, label, "appFile", true, null, null, null, null, help);
     }
 
     /** 构造下拉选项 */

@@ -5,7 +5,7 @@ const {createApp, ref, reactive, computed, onMounted, onBeforeUnmount, nextTick}
 const {ElMessage, ElMessageBox} = ElementPlus;
 
 // 前端 JS 版本号（修改后请同步递增，便于辨识加载版本）
-const APP_JS_VERSION = '20260804.1';
+const APP_JS_VERSION = '20260804.3';
 
 /** 任务顶级字段（不放进 config，提交时提升到 payload 顶层） */
 const TOP_LEVEL_FIELDS = new Set(['command', 'workingDir', 'timeoutSeconds']);
@@ -166,11 +166,40 @@ const ConfigFields = {
             // 浏览器无法暴露完整路径，仅以文件名提示用户补全
             set(field, f.name);
             checkResult.value = {exists: false, isFile: true, extension: (f.name.split('.').pop() || '').toLowerCase(), ok: false};
+            dropHint.value = '已选择「' + f.name + '」，但浏览器无法读取其完整路径。请在下方填写完整路径，或在资源管理器 Shift+右键「复制为路径」后回到此处 Ctrl+V 粘贴';
             e.target.value = '';
         }
         function openPicker(field, e) {
             const input = e.currentTarget.querySelector('.dz-input');
             if (input) input.click();
+        }
+        // 从剪贴板解析本地路径（最可靠的方式：资源管理器 Shift+右键"复制为路径"）
+        async function onPaste(field, e) {
+            let text = '';
+            try { text = (e.clipboardData || window.clipboardData).getData('text'); } catch (err) {}
+            if (!text) return;
+            const p = extractPathFromText(text);
+            if (p) {
+                set(field, p);
+                verifyPath(field, p);
+                dropHint.value = '';
+            } else {
+                dropHint.value = '剪贴板内容不是有效的文件路径，请使用资源管理器 Shift+右键「复制为路径」后粘贴';
+            }
+        }
+        function extractPathFromText(text) {
+            if (!text) return '';
+            // file:// 形式
+            const m = text.match(/file:\/\/\/?([A-Za-z]:[^\s"']*)/);
+            if (m) {
+                let p = m[1];
+                try { p = decodeURIComponent(p); } catch (e) {}
+                return p;
+            }
+            // 直接路径：C:\... 或盘符形式
+            const m2 = text.match(/([A-Za-z]:\\?[^\s"']*)/);
+            if (m2) return m2[1].replace(/\//g, '\\');
+            return '';
         }
 
         // model 被外部替换/加载（如切换任务）时，对 appFile 字段重新校验
@@ -188,7 +217,7 @@ const ConfigFields = {
         }
 
         return {val, set, dragOver, checking, checkResult, fileName,
-                onDrop, onFilePick, onPathInput, openPicker};
+                onDrop, onFilePick, onPathInput, openPicker, onPaste};
     },
     template: `
         <div class="config-fields">
@@ -245,6 +274,7 @@ const ConfigFields = {
                          @dragover.prevent="dragOver = true"
                          @dragleave.prevent="dragOver = false"
                          @drop.prevent="onDrop(f, $event)"
+                         @paste.prevent="onPaste(f, $event)"
                          @click="openPicker(f, $event)">
                         <input type="file" class="dz-input" accept=".exe,.lnk,.bat,.cmd" @change="onFilePick(f, $event)">
                         <div class="dz-inner">
@@ -255,7 +285,7 @@ const ConfigFields = {
                             <div class="dz-text">
                                 <template v-if="!fileName(f)">
                                     <div class="dz-title">拖入应用程序</div>
-                                    <div class="dz-sub">支持 .exe / .lnk 快捷方式，或点击选择</div>
+                                    <div class="dz-sub">.exe / .lnk，或点击选择；也可复制路径后在此 Ctrl+V 粘贴</div>
                                 </template>
                                 <template v-else>
                                     <div class="dz-filename">{{ fileName(f) }}</div>

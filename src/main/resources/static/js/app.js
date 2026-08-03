@@ -385,12 +385,22 @@ createApp({
             running.value = true;
             try {
                 await API.executeTask(id);
-                await loadTasks();
+                // 直接拉取该任务最新状态：不依赖整列重载，
+                // 避免立即任务模式下 loadTasks 因 currentScheduleId 为空而清空列表、导致结果消失
+                const fresh = await API.getTask(id);
+                const idx = tasks.value.findIndex((t) => t.id === id);
+                if (idx >= 0) {
+                    tasks.value[idx] = fresh;
+                    tasks.value = tasks.value.slice();
+                } else {
+                    tasks.value = [...tasks.value, fresh];
+                }
                 selectTask(id);
                 await nextTick();
                 if (resultOutput.value) {
                     resultOutput.value.scrollIntoView({behavior: 'smooth', block: 'nearest'});
                 }
+                ElMessage.success('执行完成');
             } catch (e) {
                 ElMessage.error(e.message);
             } finally {

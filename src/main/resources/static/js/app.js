@@ -273,7 +273,6 @@ async function selectTask(id) {
     $('#detailId').value = task.id;
     $('#f_name').value = task.name;
     $('#f_typeCode').value = task.typeCode;
-    $('#f_enabled').checked = task.enabled;
     $('#f_remark').value = task.remark || '';
     $('#detailNext').textContent = '下次执行：' + fmtTime(task.nextExecutionAt);
     $('#detailLast').textContent = '最近执行：' + fmtTime(task.lastExecutedAt) + (task.lastStatus ? `（${task.lastStatus === 'SUCCESS' ? '成功' : '失败'}）` : '');
@@ -406,7 +405,6 @@ async function saveDetail() {
         workingDir: (top.workingDir != null && top.workingDir.trim() !== '') ? top.workingDir.trim() : null,
         typeCode: $('#f_typeCode').value,
         config: config,
-        enabled: $('#f_enabled').checked,
         timeoutSeconds: top.timeoutSeconds != null ? Number(top.timeoutSeconds) : null,
         remark: $('#f_remark').value.trim() || null,
         scheduleId: state.currentScheduleId,

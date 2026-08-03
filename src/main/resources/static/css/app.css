@@ -265,13 +265,21 @@ body {
 .field input:focus, .field textarea:focus, .field select:focus { border-color: var(--accent); }
 /* Element Plus 组件内部自带输入框由 wrapper 管理边框，取消通用 .field input 样式以免双层 */
 .field .el-input__inner,
-.field .el-textarea__inner,
-.modal-form .el-input__inner,
-.modal-form .el-textarea__inner {
+.modal-form .el-input__inner {
     background: transparent;
     border: none;
     border-radius: 0;
     padding: 0;
+    color: var(--text);
+    font-size: inherit;
+}
+/* textarea 自身即输入框，需保留内边距，否则文字贴边 */
+.field .el-textarea__inner,
+.modal-form .el-textarea__inner {
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    padding: 8px 12px;
     color: var(--text);
     font-size: inherit;
 }
@@ -479,6 +487,7 @@ body {
     border: 1px solid var(--border) !important;
     border-radius: 8px !important;
     box-shadow: none !important;
+    padding: 8px 12px !important;
 }
 .el-input__inner {
     background-color: transparent !important;

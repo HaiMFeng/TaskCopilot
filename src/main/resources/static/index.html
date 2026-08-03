@@ -121,7 +121,7 @@
                             </el-select>
                         </el-form-item>
 
-                        <config-fields :schema="detailSchema" :model="form.config" @update="onDetailFieldUpdate"/>
+                        <config-fields :schema="detailSchema" :model="form.config" @update="onDetailFieldUpdate"></config-fields>
 
                         <el-form-item label="备注(Hint)">
                             <el-input v-model="form.remark" type="textarea" :rows="2" maxlength="255" show-word-limit placeholder="可选，记录任务用途或注意事项"/>
@@ -181,7 +181,7 @@
                 </el-select>
             </el-form-item>
 
-            <config-fields :schema="createSchema" :model="createForm.config" @update="onCreateFieldUpdate"/>
+            <config-fields :schema="createSchema" :model="createForm.config" @update="onCreateFieldUpdate"></config-fields>
 
             <el-form-item label="备注(Hint)">
                 <el-input v-model="createForm.remark" type="textarea" :rows="2" maxlength="255" show-word-limit/>

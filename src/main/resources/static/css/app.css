@@ -422,6 +422,15 @@ body {
 
 /* 立即任务占位卡片 */
 .placeholder-card h2 { margin: 6px 0; color: var(--text); }
+
+/* 拖放失败提示 */
+.dz-hint {
+    margin-top: 6px; font-size: 12px; line-height: 1.5;
+    color: var(--warning, #e6a23c);
+    background: color-mix(in srgb, var(--warning, #e6a23c) 12%, transparent);
+    border: 1px solid color-mix(in srgb, var(--warning, #e6a23c) 35%, transparent);
+    padding: 6px 9px; border-radius: 7px;
+}
 .placeholder-sub { font-size: 13px; color: var(--text-dim); }
 
 /* ---------- 表单控件深色适配（数字上下按钮 / 文本框缩放手柄） ---------- */

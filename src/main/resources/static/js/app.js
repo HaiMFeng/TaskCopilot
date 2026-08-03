@@ -59,6 +59,7 @@ const ConfigFields = {
         const dragOver = ref(false);
         const checking = ref(false);
         const checkResult = ref(null); // {exists, isFile, extension, ok}
+        const dropHint = ref(''); // 拖放失败时的提示
 
         const fileName = (field) => {
             const p = val(field);
@@ -69,21 +70,49 @@ const ConfigFields = {
 
         // 从 dataTransfer 解析本地真实路径（浏览器拖入本地文件时携带 file:// URI）
         function extractLocalPath(dt) {
-            let uri = '';
-            try { uri = dt.getData('text/uri-list') || ''; } catch (e) { /* 某些浏览器禁止读取 */ }
-            if (!uri) {
-                try { uri = dt.getData('text/plain') || ''; } catch (e) {}
+            // 1) 直接读取常见类型
+            for (const type of ['text/uri-list', 'text/plain', 'text/html']) {
+                let uri = '';
+                try { uri = dt.getData(type) || ''; } catch (e) { /* 某些浏览器禁止读取 */ }
+                const p = uriToFile(uri);
+                if (p) return p;
             }
+            // 2) 遍历 items（部分浏览器 .lnk 仅在此处暴露 file://）
+            if (dt.items) {
+                for (const item of dt.items) {
+                    if (!item.type) continue;
+                    const p = uriToFileSync(item);
+                    if (p) return p;
+                }
+            }
+            return '';
+        }
+        function uriToFile(uri) {
             if (!uri) return '';
-            // 取第一行，去掉 file:// 前缀并解码
             const first = uri.split(/\r?\n/)[0].trim();
-            if (first.startsWith('file://')) {
-                let p = first.slice('file://'.length);
+            // text/html 中可能内嵌 <a href="file://...">
+            let target = first;
+            if (!target.startsWith('file://')) {
+                const m = uri.match(/file:\/\/[^\s"'<>]+/);
+                if (m) target = m[0];
+            }
+            if (target.startsWith('file://')) {
+                let p = target.slice('file://'.length);
                 if (p.startsWith('/') && /^[A-Za-z]:/.test(p.slice(1))) p = p.slice(1);
                 try { p = decodeURIComponent(p); } catch (e) {}
                 return p;
             }
-            return first;
+            return '';
+        }
+        function uriToFileSync(item) {
+            // 仅同步读取 text/* 类型
+            if (!item.type || item.type.indexOf('text/') !== 0) return '';
+            let out = '';
+            try {
+                item.getAsString((s) => { out = s; });
+            } catch (e) { return ''; }
+            // getAsString 是异步的，这里无法等待，直接返回空由步骤1兜底
+            return '';
         }
 
         async function verifyPath(field, path) {
@@ -98,12 +127,37 @@ const ConfigFields = {
             }
         }
 
-        function onDrop(field, e) {
+        function readItemString(item) {
+            return new Promise((resolve) => {
+                try {
+                    item.getAsString((s) => resolve(s));
+                } catch (e) { resolve(''); }
+            });
+        }
+        async function onDrop(field, e) {
             dragOver.value = false;
-            const path = extractLocalPath(e.dataTransfer);
+            let path = extractLocalPath(e.dataTransfer);
+            // 兜底：遍历 items 异步读取（某些浏览器 .lnk 仅在此处暴露 file://）
+            if (!path && e.dataTransfer.items) {
+                for (const item of e.dataTransfer.items) {
+                    if (!item.type || item.type.indexOf('text/') !== 0) continue;
+                    const s = await readItemString(item);
+                    const p = uriToFile(s);
+                    if (p) { path = p; break; }
+                }
+            }
             if (path) {
                 set(field, path);
                 verifyPath(field, path);
+                dropHint.value = '';
+            } else {
+                // 浏览器安全限制：无法读取拖入文件的本地路径（多见于 .lnk 快捷方式）
+                dropHint.value = '无法自动读取该文件的本地路径，请手动在下方填写完整路径（如 C:\\...\\app.exe）';
+                // 聚焦路径输入框
+                nextTick(() => {
+                    const inp = e.currentTarget && e.currentTarget.querySelector && e.currentTarget.querySelector('.dz-path input');
+                    if (inp) inp.focus();
+                });
             }
         }
         function onFilePick(field, e) {
@@ -217,6 +271,7 @@ const ConfigFields = {
                               :model-value="val(f)"
                               placeholder="或手动填写完整路径，例如 C:\Program Files\App\app.exe"
                               @update:model-value="v => onPathInput(f, v)"/>
+                    <div class="dz-hint" v-if="dropHint">{{ dropHint }}</div>
                 </template>
 
                 <div v-if="f.help && f.type !== 'text' && f.type !== 'textarea' && f.type !== 'appFile'" class="field-help">{{ f.help }}</div>

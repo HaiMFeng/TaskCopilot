@@ -15,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Objects;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -96,6 +97,16 @@ public class TaskService {
         TaskTypeHandler handler = taskTypeRegistry.require(request.typeCode());
         Map<String, Object> config = request.config() == null ? Map.of() : request.config();
         handler.validate(config);
+
+        // 关键执行要素变更（命令/类型/工作目录/配置）时，旧的运行结果已与新任务不再相关，清空之。
+        String newConfigJson = configCodec.write(config);
+        boolean executionChanged = !Objects.equals(task.getCommand(), request.command())
+                || !Objects.equals(task.getTypeCode(), request.typeCode())
+                || !Objects.equals(task.getWorkingDir(), request.workingDir())
+                || !Objects.equals(task.getConfigJson(), newConfigJson);
+        if (executionChanged) {
+            taskLogRepository.deleteByTaskId(id);
+        }
 
         apply(task, request, config);
         Task saved = taskRepository.save(task);

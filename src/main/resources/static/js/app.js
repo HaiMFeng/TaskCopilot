@@ -154,6 +154,28 @@ async function loadTasks() {
     renderTasks();
 }
 
+/* 周期性轮询：定时任务到点执行后无需手动刷新即可更新状态与运行结果 */
+async function pollTasks() {
+    if (!state.currentScheduleId) return;
+    try {
+        state.tasks = await API.listTasksBySchedule(state.currentScheduleId);
+        renderTasks();
+        if (state.selectedTaskId != null) {
+            const task = state.tasks.find((t) => t.id === state.selectedTaskId);
+            if (task) refreshDetailStatus(task);
+        }
+    } catch (_) {
+        /* 轮询静默失败，避免打断用户 */
+    }
+}
+
+/* 仅刷新详情区的派生信息（状态/时间/运行结果），不动表单输入，避免干扰正在进行的编辑 */
+function refreshDetailStatus(task) {
+    $('#detailNext').textContent = '下次执行：' + fmtTime(task.nextExecutionAt);
+    $('#detailLast').textContent = '最近执行：' + fmtTime(task.lastExecutedAt) + (task.lastStatus ? `（${task.lastStatus === 'SUCCESS' ? '成功' : '失败'}）` : '');
+    renderLastResult(task);
+}
+
 function statusClass(task) {
     if (!task.lastStatus) return 'idle';
     return task.lastStatus === 'SUCCESS' ? 'ok' : 'fail';
@@ -588,6 +610,8 @@ async function init() {
     await loadSchedulerState();
     // 周期性刷新运行时间等派生信息
     setInterval(loadSchedulerState, 15000);
+    // 周期性轮询任务状态与运行结果（定时任务到点后自动更新，无需手动刷新）
+    setInterval(pollTasks, 8000);
 }
 
 document.addEventListener('DOMContentLoaded', init);

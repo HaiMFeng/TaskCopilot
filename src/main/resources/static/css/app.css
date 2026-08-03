@@ -15,6 +15,29 @@
 
 * { box-sizing: border-box; }
 
+/* 统一滚动条样式（深色） */
+* {
+    scrollbar-width: thin;
+    scrollbar-color: #2f3643 var(--bg);
+}
+::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+::-webkit-scrollbar-thumb {
+    background: #2f3643;
+    border-radius: 999px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: #3a4252;
+    background-clip: padding-box;
+}
+
 body {
     margin: 0;
     font-family: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
@@ -225,7 +248,7 @@ body {
     transition: border-color .15s;
 }
 .field input:focus, .field textarea:focus, .field select:focus { border-color: var(--accent); }
-.field textarea { resize: vertical; }
+.field textarea { resize: vertical; min-height: 64px; }
 
 /* 统一下拉框样式（深色 + 自定义箭头），与整体 UI 一致 */
 .field select, .modal-form select {
@@ -241,9 +264,39 @@ body {
 .field select:hover, .modal-form select:hover { border-color: #3a4252; }
 .field select option, .modal-form select option { background: var(--bg-raised); color: var(--text); }
 
-/* 时间选择控件与输入框风格统一 */
+/* 时间选择控件与整体 UI 风格统一 */
 .field input[type="time"], .modal-form input[type="time"] {
     color-scheme: dark;
+    appearance: none;
+    -webkit-appearance: none;
+    background-color: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    padding: 9px 11px;
+    font-size: 14px;
+    font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+    letter-spacing: .5px;
+    cursor: pointer;
+    transition: border-color .15s;
+}
+.field input[type="time"]:focus, .modal-form input[type="time"]:focus {
+    border-color: var(--accent);
+    outline: none;
+}
+.field input[type="time"]:hover, .modal-form input[type="time"]:hover {
+    border-color: #3a4252;
+}
+/* 让原生日历/时钟图标在深色背景下可见 */
+.field input[type="time"]::-webkit-calendar-picker-indicator,
+.modal-form input[type="time"]::-webkit-calendar-picker-indicator {
+    filter: invert(0.7);
+    cursor: pointer;
+    opacity: .8;
+}
+.field input[type="time"]::-webkit-calendar-picker-indicator:hover,
+.modal-form input[type="time"]::-webkit-calendar-picker-indicator:hover {
+    opacity: 1;
 }
 .field-row { display: flex; gap: 14px; align-items: flex-end; }
 .field-row .field { flex: 1; }

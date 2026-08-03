@@ -202,7 +202,8 @@ createApp({
             return `（${t.lastStatus === 'SUCCESS' ? '成功' : '失败'}）`;
         });
 
-        const showResult = computed(() => {
+        const showResult = computed(() => !!selectedTask.value);
+        const hasRun = computed(() => {
             const t = selectedTask.value;
             return !!(t && t.lastExecutedAt && t.lastStatus);
         });
@@ -213,7 +214,7 @@ createApp({
         const resultBadgeClass = computed(() => (resultHasError.value ? 'fail' : 'ok'));
         const resultBadgeText = computed(() => {
             const t = selectedTask.value;
-            if (!t) return '';
+            if (!t || !t.lastStatus) return '尚未运行';
             const s = t.lastStatus === 'SUCCESS' ? '成功' : (t.lastStatus === 'TIMEOUT' ? '超时' : '失败');
             return s + (t.lastExitCode != null ? ` · 退出码 ${t.lastExitCode}` : '');
         });

@@ -124,7 +124,7 @@
                         <config-fields :schema="detailSchema" :model="form.config" @update="onDetailFieldUpdate"/>
 
                         <el-form-item label="备注(Hint)">
-                            <el-input v-model="form.remark" type="textarea" :rows="2" maxlength="255" show-word-limit/>
+                            <el-input v-model="form.remark" type="textarea" :rows="2" maxlength="255" show-word-limit placeholder="可选，记录任务用途或注意事项"/>
                         </el-form-item>
 
                         <div class="detail-meta">
@@ -135,12 +135,17 @@
                         <div v-if="showResult" class="result-box">
                             <div class="result-head">
                                 <span class="section-title">上次运行结果</span>
-                                <span class="result-badge" :class="resultBadgeClass">{{ resultBadgeText }}</span>
-                                <span class="result-meta">{{ fmtTime(selectedTask.lastExecutedAt) }}</span>
+                                <template v-if="hasRun">
+                                    <span class="result-badge" :class="resultBadgeClass">{{ resultBadgeText }}</span>
+                                    <span class="result-meta">{{ fmtTime(selectedTask.lastExecutedAt) }}</span>
+                                </template>
+                                <span v-else class="result-badge idle">尚未运行</span>
                             </div>
-                            <pre ref="resultOutput"
+                            <pre v-if="hasRun"
+                                 ref="resultOutput"
                                  class="result-output"
                                  :class="{ 'has-error': resultHasError }">{{ resultText }}</pre>
+                            <p v-else class="placeholder-sub">该任务尚未执行过，创建并启用后将按调度时间运行。</p>
                             <button type="button" class="btn-ghost btn-sm" @click="viewHistory">查看完整历史</button>
                         </div>
 

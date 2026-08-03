@@ -409,6 +409,17 @@ body {
 
 .hidden { display: none !important; }
 
+/* ---------- 版本标识 ---------- */
+.version-badge {
+    position: fixed; right: 12px; bottom: 10px; z-index: 60;
+    display: flex; gap: 10px; align-items: center;
+    font-size: 11px; line-height: 1; color: var(--text-muted);
+    background: var(--bg-raised); border: 1px solid var(--border);
+    padding: 4px 9px; border-radius: 7px; box-shadow: var(--shadow);
+    user-select: none; pointer-events: none;
+}
+.version-badge b { color: var(--accent); font-weight: 600; }
+
 /* 立即任务占位卡片 */
 .placeholder-card h2 { margin: 6px 0; color: var(--text); }
 .placeholder-sub { font-size: 13px; color: var(--text-dim); }

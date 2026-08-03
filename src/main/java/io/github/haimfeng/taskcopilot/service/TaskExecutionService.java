@@ -5,6 +5,8 @@ import io.github.haimfeng.taskcopilot.domain.ExecutionStatus;
 import io.github.haimfeng.taskcopilot.domain.Task;
 import io.github.haimfeng.taskcopilot.domain.TaskLog;
 import io.github.haimfeng.taskcopilot.repository.TaskLogRepository;
+import io.github.haimfeng.taskcopilot.tasktype.TaskTypeHandler;
+import io.github.haimfeng.taskcopilot.tasktype.TaskTypeRegistry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.PageRequest;
@@ -12,6 +14,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.Semaphore;
 
 /**
@@ -28,19 +31,25 @@ public class TaskExecutionService {
     private final CommandExecutor commandExecutor;
     private final TaskLogRepository taskLogRepository;
     private final TaskCopilotProperties properties;
+    private final TaskTypeRegistry taskTypeRegistry;
+    private final TaskConfigCodec configCodec;
     private final Semaphore concurrencyLimiter;
 
     public TaskExecutionService(CommandExecutor commandExecutor,
                                 TaskLogRepository taskLogRepository,
-                                TaskCopilotProperties properties) {
+                                TaskCopilotProperties properties,
+                                TaskTypeRegistry taskTypeRegistry,
+                                TaskConfigCodec configCodec) {
         this.commandExecutor = commandExecutor;
         this.taskLogRepository = taskLogRepository;
         this.properties = properties;
+        this.taskTypeRegistry = taskTypeRegistry;
+        this.configCodec = configCodec;
         this.concurrencyLimiter = new Semaphore(Math.max(1, properties.getMaxConcurrentExecutions()));
     }
 
     /**
-     * 同步执行任务并记录日志。
+     * 同步执行任务并记录日志。按任务类型分派到对应执行逻辑。
      */
     @Transactional
     public TaskLog execute(Task task, String triggerSource) {
@@ -54,12 +63,23 @@ public class TaskExecutionService {
         }
         try {
             log.info("开始执行任务 [{}] ({})", task.getName(), triggerSource);
-            CommandExecutor.ExecutionResult result = commandExecutor.execute(task);
+            CommandExecutor.ExecutionResult result = runByType(task);
             log.info("任务 [{}] 执行结束，状态={}, 退出码={}", task.getName(), result.status(), result.exitCode());
             return saveLog(task, triggerSource, result);
         } finally {
             concurrencyLimiter.release();
         }
+    }
+
+    /** 依据任务类型选择执行方式；无对应 handler 时兜底为命令执行 */
+    private CommandExecutor.ExecutionResult runByType(Task task) {
+        Map<String, Object> config = configCodec.read(task.getConfigJson());
+        TaskTypeHandler handler = taskTypeRegistry.find(task.getTypeCode()).orElse(null);
+        if (handler != null) {
+            return handler.execute(task, config, commandExecutor)
+                    .orElseGet(() -> commandExecutor.execute(task));
+        }
+        return commandExecutor.execute(task);
     }
 
     /**

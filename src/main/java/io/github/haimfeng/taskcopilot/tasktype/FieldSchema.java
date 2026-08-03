@@ -46,4 +46,16 @@ public record FieldSchema(
     public static FieldSchema time(String name, String label, String defaultValue) {
         return new FieldSchema(name, label, "time", true, defaultValue, null, null, null, null);
     }
+
+    public static FieldSchema textarea(String name, String label, String help) {
+        return new FieldSchema(name, label, "textarea", false, null, null, null, null, help);
+    }
+
+    /** 构造下拉选项 */
+    public static Map<String, Object> option(String value, String label) {
+        Map<String, Object> m = new java.util.LinkedHashMap<>();
+        m.put("value", value);
+        m.put("label", label);
+        return m;
+    }
 }

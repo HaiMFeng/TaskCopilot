@@ -272,16 +272,19 @@ async function selectTask(id) {
     $('#detailForm').classList.remove('hidden');
     $('#detailId').value = task.id;
     $('#f_name').value = task.name;
-    $('#f_command').value = task.command;
-    $('#f_workingDir').value = task.workingDir || '';
     $('#f_typeCode').value = task.typeCode;
-    $('#f_timeoutSeconds').value = task.timeoutSeconds || '';
     $('#f_enabled').checked = task.enabled;
     $('#f_remark').value = task.remark || '';
     $('#detailNext').textContent = '下次执行：' + fmtTime(task.nextExecutionAt);
     $('#detailLast').textContent = '最近执行：' + fmtTime(task.lastExecutedAt) + (task.lastStatus ? `（${task.lastStatus === 'SUCCESS' ? '成功' : '失败'}）` : '');
     renderLastResult(task);
-    renderConfigFields(task.typeCode, task.config || {});
+    // 命令/工作目录/超时属于任务顶级字段，但由类型 schema 动态渲染，组装进 config 以回填
+    const detailConfig = Object.assign({}, task.config || {}, {
+        command: task.command,
+        workingDir: task.workingDir,
+        timeoutSeconds: task.timeoutSeconds,
+    });
+    renderConfigFields('#configFields', task.typeCode, detailConfig);
 }
 
 function renderLastResult(task) {
@@ -307,65 +310,96 @@ function renderLastResult(task) {
     $('#resultOutput').classList.toggle('has-error', task.lastStatus !== 'SUCCESS');
 }
 
-function renderConfigFields(typeCode, config) {
-    const box = $('#configFields');
+/* 渲染配置项到指定容器。command/workingDir/timeoutSeconds 为任务顶级字段，标记 data-top */
+function renderConfigFields(containerId, typeCode, config) {
+    const box = $(containerId);
     box.innerHTML = '';
     const type = state.taskTypes.find((t) => t.typeCode === typeCode);
     if (!type || !type.configSchema) return;
     type.configSchema.forEach((field) => {
-        const val = config && config[field.name] != null ? config[field.name] : field.default != null ? field.default : '';
+        const val = config && config[field.name] != null ? config[field.name]
+                : field.default != null ? field.default : '';
         const label = document.createElement('label');
         label.className = 'field';
         label.innerHTML = `<span>${escapeHtml(field.label)}${field.required ? ' *' : ''}</span>`;
-        let input;
-        if (field.type === 'select') {
-            input = document.createElement('select');
-            (field.options || []).forEach((opt) => {
-                const o = document.createElement('option');
-                o.value = opt.value;
-                o.textContent = opt.label;
-                input.appendChild(o);
-            });
-            input.value = val;
-        } else {
-            input = document.createElement('input');
-            input.type = field.type === 'number' ? 'number'
-                    : field.type === 'time' ? 'time' : 'text';
-            if (field.type === 'number') input.min = field.min ?? 0;
-            if (field.max != null) input.max = field.max;
-            input.value = val;
-        }
-        input.dataset.config = field.name;
+        const input = buildConfigInput(field, val);
         label.appendChild(input);
         box.appendChild(label);
     });
 }
 
-function collectConfig() {
-    const cfg = {};
-    $$('#configFields [data-config]').forEach((el) => {
-        const name = el.dataset.config;
+/* 根据 schema 字段构造输入控件，支持 select/textarea/number/time/text */
+function buildConfigInput(field, val) {
+    let input;
+    if (field.type === 'select') {
+        input = document.createElement('select');
+        (field.options || []).forEach((opt) => {
+            const o = document.createElement('option');
+            o.value = opt.value;
+            o.textContent = opt.label;
+            input.appendChild(o);
+        });
+        input.value = (val == null || val === '') ? (field.default != null ? field.default : '') : val;
+    } else if (field.type === 'textarea') {
+        input = document.createElement('textarea');
+        input.rows = 2;
+        input.value = val == null ? '' : String(val);
+    } else {
+        input = document.createElement('input');
+        input.type = field.type === 'number' ? 'number'
+                : field.type === 'time' ? 'time' : 'text';
+        if (field.type === 'number') {
+            input.min = field.min != null ? field.min : 0;
+            if (field.max != null) input.max = field.max;
+        }
+        input.value = val == null ? '' : val;
+    }
+    input.dataset.config = field.name;
+    if (field.placeholder) input.placeholder = field.placeholder;
+    if (TOP_LEVEL_FIELDS.has(field.name)) input.dataset.top = '1';
+    return input;
+}
+
+/* 任务顶级字段（非 config 内），收集时提升到 payload 顶层 */
+const TOP_LEVEL_FIELDS = new Set(['command', 'workingDir', 'timeoutSeconds']);
+
+/*
+ * 收集配置：返回 { config, top }。
+ * - config：配置项内的字段（含 time 等）
+ * - top：任务顶级字段（command/workingDir/timeoutSeconds），用于放入 payload 顶层
+ */
+function collectConfig(containerId) {
+    const config = {};
+    const top = {};
+    $$(containerId + ' [data-config]').forEach((el) => {
+        let value;
         if (el.tagName === 'SELECT') {
-            cfg[name] = el.value;
+            value = el.value;
         } else if (el.type === 'number') {
-            cfg[name] = el.value === '' ? null : Number(el.value);
+            value = el.value === '' ? null : Number(el.value);
         } else {
-            cfg[name] = el.value;
+            value = el.value;
+        }
+        if (el.dataset.top === '1') {
+            top[el.dataset.config] = value;
+        } else {
+            config[el.dataset.config] = value;
         }
     });
-    return cfg;
+    return {config, top};
 }
 
 async function saveDetail() {
     const id = Number($('#detailId').value);
+    const {config, top} = collectConfig('#configFields');
     const payload = {
         name: $('#f_name').value.trim(),
-        command: $('#f_command').value,
-        workingDir: $('#f_workingDir').value.trim() || null,
+        command: top.command != null ? top.command : '',
+        workingDir: (top.workingDir != null && top.workingDir.trim() !== '') ? top.workingDir.trim() : null,
         typeCode: $('#f_typeCode').value,
-        config: collectConfig(),
+        config: config,
         enabled: $('#f_enabled').checked,
-        timeoutSeconds: $('#f_timeoutSeconds').value ? Number($('#f_timeoutSeconds').value) : null,
+        timeoutSeconds: top.timeoutSeconds != null ? Number(top.timeoutSeconds) : null,
         remark: $('#f_remark').value.trim() || null,
         scheduleId: state.currentScheduleId,
     };
@@ -445,14 +479,8 @@ async function openCreateTaskModal() {
     body.innerHTML = `
         <form id="createForm" class="modal-form">
             <label class="field"><span>名称</span><input type="text" id="c_name" required maxlength="100"></label>
-            <label class="field"><span>命令</span><textarea id="c_command" rows="2" required></textarea></label>
-            <label class="field"><span>工作目录</span><input type="text" id="c_workingDir" placeholder="可选"></label>
             <label class="field"><span>类型</span><select id="c_typeCode"></select></label>
             <div id="c_configFields" class="config-fields"></div>
-            <div class="field-row">
-                <label class="field"><span>超时(秒)</span><input type="number" id="c_timeoutSeconds" min="1" max="86400"></label>
-                <label class="field checkbox"><input type="checkbox" id="c_enabled" checked><span>启用</span></label>
-            </div>
             <label class="field"><span>备注(Hint)</span><textarea id="c_remark" rows="2" maxlength="255"></textarea></label>
             <div class="modal-actions">
                 <button type="button" class="btn-ghost" id="modalCancel">取消</button>
@@ -468,36 +496,7 @@ async function openCreateTaskModal() {
         sel.appendChild(o);
     });
     function renderCConfig() {
-        const box = $('#c_configFields');
-        box.innerHTML = '';
-        const type = state.taskTypes.find((t) => t.typeCode === sel.value);
-        if (!type || !type.configSchema) return;
-        type.configSchema.forEach((field) => {
-            const label = document.createElement('label');
-            label.className = 'field';
-            label.innerHTML = `<span>${escapeHtml(field.label)}${field.required ? ' *' : ''}</span>`;
-            let input;
-            if (field.type === 'select') {
-                input = document.createElement('select');
-                (field.options || []).forEach((opt) => {
-                    const o = document.createElement('option');
-                    o.value = opt.value;
-                    o.textContent = opt.label;
-                    input.appendChild(o);
-                });
-                input.value = field.default != null ? field.default : '';
-            } else {
-                input = document.createElement('input');
-                input.type = field.type === 'number' ? 'number'
-                        : field.type === 'time' ? 'time' : 'text';
-                if (field.type === 'number') input.min = field.min ?? 0;
-                if (field.max != null) input.max = field.max;
-                input.value = field.default != null ? field.default : '';
-            }
-            input.dataset.config = field.name;
-            label.appendChild(input);
-            box.appendChild(label);
-        });
+        renderConfigFields('#c_configFields', sel.value, {});
     }
     sel.addEventListener('change', renderCConfig);
     renderCConfig();
@@ -505,18 +504,15 @@ async function openCreateTaskModal() {
     $('#modalCancel').addEventListener('click', closeModal);
     $('#createForm').addEventListener('submit', async (e) => {
         e.preventDefault();
-        const cfg = {};
-        $$('#c_configFields [data-config]').forEach((el) => {
-            cfg[el.dataset.config] = el.type === 'number' ? (el.value === '' ? null : Number(el.value)) : el.value;
-        });
+        const {config, top} = collectConfig('#c_configFields');
         const payload = {
             name: $('#c_name').value.trim(),
-            command: $('#c_command').value,
-            workingDir: $('#c_workingDir').value.trim() || null,
+            command: top.command != null ? top.command : '',
+            workingDir: (top.workingDir != null && top.workingDir.trim() !== '') ? top.workingDir.trim() : null,
             typeCode: sel.value,
-            config: cfg,
-            enabled: $('#c_enabled').checked,
-            timeoutSeconds: $('#c_timeoutSeconds').value ? Number($('#c_timeoutSeconds').value) : null,
+            config: config,
+            enabled: true,
+            timeoutSeconds: top.timeoutSeconds != null ? Number(top.timeoutSeconds) : null,
             remark: $('#c_remark').value.trim() || null,
             scheduleId: state.currentScheduleId,
         };

@@ -4,6 +4,7 @@ import io.github.haimfeng.taskcopilot.domain.Schedule;
 import io.github.haimfeng.taskcopilot.domain.Task;
 import io.github.haimfeng.taskcopilot.repository.ScheduleRepository;
 import io.github.haimfeng.taskcopilot.repository.TaskRepository;
+import io.github.haimfeng.taskcopilot.tasktype.DailyTiming;
 import io.github.haimfeng.taskcopilot.tasktype.TaskTypeHandler;
 import io.github.haimfeng.taskcopilot.tasktype.TaskTypeRegistry;
 import jakarta.annotation.PreDestroy;
@@ -87,7 +88,7 @@ public class TaskScheduler {
             return;
         }
         Map<String, Object> config = configCodec.read(task.getConfigJson());
-        Optional<Instant> next = handler.nextExecution(config, Instant.now());
+        Optional<Instant> next = DailyTiming.nextExecution(config, Instant.now());
         if (next.isEmpty()) {
             log.info("任务 [{}] 无后续触发时间，不再调度", task.getName());
             nextExecutions.remove(task.getId());

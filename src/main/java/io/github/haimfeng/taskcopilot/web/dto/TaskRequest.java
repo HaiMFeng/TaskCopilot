@@ -15,7 +15,7 @@ public record TaskRequest(
         @Size(max = 100, message = "任务名称不能超过 100 字")
         String name,
 
-        @NotBlank(message = "命令不能为空")
+        /** 命令内容。运行指令类型必填，其它类型可为空（由配置项决定实际行为） */
         String command,
 
         @Size(max = 500)

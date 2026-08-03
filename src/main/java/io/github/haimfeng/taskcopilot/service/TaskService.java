@@ -17,6 +17,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Objects;
 import java.util.List;
+import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
@@ -80,8 +81,12 @@ public class TaskService {
     @Transactional
     public TaskResponse create(TaskRequest request) {
         TaskTypeHandler handler = taskTypeRegistry.require(request.typeCode());
-        Map<String, Object> config = request.config() == null ? Map.of() : request.config();
+        Map<String, Object> config = request.config() == null ? new LinkedHashMap<>() : new LinkedHashMap<>(request.config());
+        // 顶层通用字段（command/workingDir/timeoutSeconds）对运行指令类型而言即配置项，
+        // 合并进 config 使 handler 的校验/执行与前端 schema 保持一致。
+        mergeTopLevelToConfig(request, config);
         handler.validate(config);
+        assertRunCommandContent(request);
 
         Task task = new Task();
         apply(task, request, config);
@@ -95,8 +100,10 @@ public class TaskService {
     public TaskResponse update(Long id, TaskRequest request) {
         Task task = requireTask(id);
         TaskTypeHandler handler = taskTypeRegistry.require(request.typeCode());
-        Map<String, Object> config = request.config() == null ? Map.of() : request.config();
+        Map<String, Object> config = request.config() == null ? new LinkedHashMap<>() : new LinkedHashMap<>(request.config());
+        mergeTopLevelToConfig(request, config);
         handler.validate(config);
+        assertRunCommandContent(request);
 
         // 关键执行要素变更（命令/类型/工作目录/配置）时，旧的运行结果已与新任务不再相关，清空之。
         String newConfigJson = configCodec.write(config);
@@ -175,13 +182,42 @@ public class TaskService {
                 .orElseThrow(() -> new IllegalArgumentException("任务不存在: " + id));
     }
 
+    /**
+     * 将顶层通用字段（command/workingDir/timeoutSeconds）合并进 config。
+     * 运行指令等类型以这些字段作为配置项，确保 handler 的校验、执行与前端 schema 使用同一份数据。
+     */
+    private void mergeTopLevelToConfig(TaskRequest request, Map<String, Object> config) {
+        if (request.command() != null) {
+            config.putIfAbsent("command", request.command());
+        }
+        if (request.workingDir() != null) {
+            config.putIfAbsent("workingDir", request.workingDir());
+        }
+        if (request.timeoutSeconds() != null) {
+            config.putIfAbsent("timeoutSeconds", request.timeoutSeconds());
+        }
+    }
+
+    /** 运行指令类型必须提供命令内容 */
+    private void assertRunCommandContent(TaskRequest request) {
+        if ("RUN_COMMAND".equals(request.typeCode())
+                && (request.command() == null || request.command().isBlank())) {
+            throw new IllegalArgumentException("运行指令内容不能为空");
+        }
+    }
+
     private void apply(Task task, TaskRequest request, Map<String, Object> config) {
-        task.setName(request.name().trim());
-        task.setCommand(request.command());
-        task.setWorkingDir(blankToNull(request.workingDir()));
+        task.setName(blankToNull(request.name()));
+        // 运行指令等类型以 config 内的 command/workingDir/timeoutSeconds 为真相源，
+        // 顶层字段同步写入实体，保证列表展示与执行器读取一致。
+        Object cfgCommand = config.get("command");
+        task.setCommand(cfgCommand instanceof String s ? s : request.command());
+        Object cfgWorkdir = config.get("workingDir");
+        task.setWorkingDir(blankToNull(cfgWorkdir instanceof String s ? s : request.workingDir()));
         task.setTypeCode(request.typeCode());
         task.setConfigJson(configCodec.write(config));
-        task.setTimeoutSeconds(request.timeoutSeconds());
+        Object cfgTimeout = config.get("timeoutSeconds");
+        task.setTimeoutSeconds(cfgTimeout instanceof Number n ? n.intValue() : request.timeoutSeconds());
         task.setRemark(blankToNull(request.remark()));
         task.setScheduleId(request.scheduleId());
         if (request.enabled() != null) {

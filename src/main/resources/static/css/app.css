@@ -437,11 +437,13 @@ body {
 }
 
 /* 多行文本框缩放手柄（右下角）：深色下自定义样式，避免原生手柄异常 */
-.field textarea, .modal-form textarea {
+.field textarea, .modal-form textarea, .detail-form textarea {
     resize: vertical;
 }
+.el-textarea__inner::-webkit-resizer,
 .field textarea::-webkit-resizer,
-.modal-form textarea::-webkit-resizer {
+.modal-form textarea::-webkit-resizer,
+.detail-form textarea::-webkit-resizer {
     background: transparent;
     border-right: 2px solid var(--text-dim);
     border-bottom: 2px solid var(--text-dim);
@@ -452,7 +454,9 @@ body {
     border-bottom-right-radius: 3px;
 }
 .field textarea:hover::-webkit-resizer,
-.modal-form textarea:hover::-webkit-resizer {
+.modal-form textarea:hover::-webkit-resizer,
+.detail-form textarea:hover::-webkit-resizer,
+.el-textarea__inner:hover::-webkit-resizer {
     border-color: var(--accent);
 }
 

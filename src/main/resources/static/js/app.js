@@ -287,6 +287,14 @@ async function selectTask(id) {
     renderConfigFields('#configFields', task.typeCode, detailConfig);
 }
 
+/* 切换任务类型时重新渲染参数界面，并保留已填写的通用字段值 */
+function rerenderDetailConfig() {
+    const typeCode = $('#f_typeCode').value;
+    // 从当前表单收集已有值，避免切换类型后用户已填内容丢失
+    const {config} = collectConfig('#configFields');
+    renderConfigFields('#configFields', typeCode, config);
+}
+
 function renderLastResult(task) {
     const box = $('#resultBox');
     if (!task.lastExecutedAt || !task.lastStatus) {
@@ -562,6 +570,8 @@ async function init() {
         e.preventDefault();
         saveDetail();
     });
+    // 切换任务类型时动态切换参数配置界面
+    $('#f_typeCode').addEventListener('change', rerenderDetailConfig);
     $('#btnRunTask').addEventListener('click', runTask);
     $('#btnDeleteTask').addEventListener('click', deleteTask);
     $('#btnViewHistory').addEventListener('click', viewHistory);

@@ -368,3 +368,66 @@ body {
 /* 立即任务占位卡片 */
 .placeholder-card h2 { margin: 6px 0; color: var(--text); }
 .placeholder-sub { font-size: 13px; color: var(--text-dim); }
+
+/* ---------- 表单控件深色适配（类型选择框 / 时间选择器 / 数字上下按钮 / 文本框缩放手柄） ---------- */
+
+/* 类型选择框：与整体深色 UI 一致，hover 边框高亮 */
+.field select, .modal-form select {
+    transition: border-color .15s, background-color .15s;
+}
+.field select:focus, .modal-form select:focus {
+    border-color: var(--accent);
+    outline: none;
+    box-shadow: 0 0 0 1px var(--accent) inset;
+}
+
+/* 时间选择器：保持等宽字体与深色背景，hover/focus 边框高亮 */
+.field input[type="time"], .modal-form input[type="time"] {
+    transition: border-color .15s, background-color .15s;
+}
+.field input[type="time"]:focus, .modal-form input[type="time"]:focus {
+    box-shadow: 0 0 0 1px var(--accent) inset;
+}
+
+/* 数字输入框（如超时）的上下调整按钮：深色可见 */
+.field input[type="number"], .modal-form input[type="number"] {
+    color-scheme: dark; /* 让浏览器原生 spinner 适配深色 */
+    -moz-appearance: textfield;
+}
+.field input[type="number"]::-webkit-inner-spin-button,
+.field input[type="number"]::-webkit-outer-spin-button,
+.modal-form input[type="number"]::-webkit-inner-spin-button,
+.modal-form input[type="number"]::-webkit-outer-spin-button {
+    -webkit-appearance: inner-spin-button;
+    appearance: inner-spin-button;
+    opacity: 1;
+    cursor: pointer;
+    /* 调整按钮在深色背景下可见：反色 + 缩小间距 */
+    filter: invert(0.85);
+    margin-left: 4px;
+}
+.field input[type="number"]:hover::-webkit-inner-spin-button,
+.modal-form input[type="number"]:hover::-webkit-inner-spin-button {
+    filter: invert(1);
+}
+
+/* 多行文本框缩放手柄（右下角）：深色下自定义样式，避免原生手柄异常 */
+.field textarea, .modal-form textarea {
+    resize: vertical;
+    background-attachment: local;
+}
+.field textarea::-webkit-resizer,
+.modal-form textarea::-webkit-resizer {
+    background: transparent;
+    border-right: 2px solid var(--text-dim);
+    border-bottom: 2px solid var(--text-dim);
+    border-left: none;
+    border-top: none;
+    width: 10px;
+    height: 10px;
+    border-bottom-right-radius: 3px;
+}
+.field textarea:hover::-webkit-resizer,
+.modal-form textarea:hover::-webkit-resizer {
+    border-color: var(--accent);
+}

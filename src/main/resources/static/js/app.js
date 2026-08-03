@@ -177,12 +177,12 @@ const ConfigFields = {
                            :model-value="!!val(f)"
                            @update:model-value="v => set(f, v)"/>
 
-                <el-input v-else
+                <el-input v-else-if="f.type !== 'appFile'"
                           :model-value="val(f)"
                           :placeholder="f.help || ''"
                           @update:model-value="v => set(f, v)"/>
 
-                <template v-if="f.type === 'appFile'">
+                <template v-else-if="f.type === 'appFile'">
                     <div class="dropzone"
                          :class="{ 'is-over': dragOver, 'is-set': !!fileName(f) }"
                          @dragover.prevent="dragOver = true"

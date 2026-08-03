@@ -100,8 +100,8 @@
                         <div class="detail-head">
                             <h2>任务详情</h2>
                             <div class="detail-actions">
-                                <button type="button" class="btn-ghost" :disabled="running" @click="runTask">
-                                    {{ running ? '执行中…' : '立即执行' }}
+                                <button type="button" class="btn-ghost" :disabled="running || saving" @click="runTask">
+                                    {{ running ? '执行中…' : '保存并立即执行' }}
                                 </button>
                                 <button type="submit" class="btn-primary" :disabled="saving">
                                     {{ saving ? '保存中…' : '保存' }}

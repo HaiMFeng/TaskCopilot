@@ -482,25 +482,34 @@ createApp({
             };
         }
 
-        async function saveDetail() {
+        async function _doSave() {
             if (!form.name.trim()) {
                 ElMessage.error('任务名称不能为空');
-                return;
+                return false;
             }
             saving.value = true;
             try {
                 const updated = await API.updateTask(form.id, buildPayload(form, detailSchema.value));
-                ElMessage.success('已保存');
                 await loadTasks();
                 selectTask(updated.id);
+                return true;
             } catch (e) {
                 ElMessage.error(e.message);
+                return false;
             } finally {
                 saving.value = false;
             }
         }
 
+        async function saveDetail() {
+            const ok = await _doSave();
+            if (ok) ElMessage.success('已保存');
+        }
+
         async function runTask() {
+            // 先保存，确保执行的是最新配置
+            const ok = await _doSave();
+            if (!ok) return;
             const id = form.id;
             running.value = true;
             try {

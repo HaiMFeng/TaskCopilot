@@ -257,15 +257,15 @@ body {
 .log-head { background: var(--bg-raised); padding: 8px 12px; font-size: 12px; color: var(--text-dim); border-bottom: 1px solid var(--border); }
 .log-box pre { margin: 0; padding: 12px; font-size: 13px; white-space: pre-wrap; word-break: break-all; max-height: 240px; overflow-y: auto; background: #0c0e12; }
 
-/* ---------- 上次运行结果 ---------- */
-.result-box { margin-top: 18px; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: var(--bg-raised); }
+/* ---------- 上次运行结果（位于任务列表下方） ---------- */
+.result-box { margin-top: 16px; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: var(--bg-raised); }
 .result-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 10px 12px; border-bottom: 1px solid var(--border); }
 .result-head .section-title { font-size: 13px; font-weight: 600; }
 .result-badge { font-size: 12px; padding: 2px 10px; border-radius: 999px; font-weight: 600; }
 .result-badge.ok { background: rgba(56, 203, 137, 0.15); color: #38cb89; border: 1px solid rgba(56, 203, 137, 0.4); }
 .result-badge.fail { background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.4); }
 .result-meta { font-size: 12px; color: var(--text-dim); margin-left: auto; }
-.result-output { margin: 0; padding: 12px; font-size: 13px; line-height: 1.5; white-space: pre-wrap; word-break: break-all; max-height: 260px; overflow-y: auto; background: #0c0e12; }
+.result-output { margin: 0; padding: 12px; font-size: 13px; line-height: 1.5; white-space: pre-wrap; word-break: break-all; max-height: 300px; overflow-y: auto; background: #0c0e12; }
 .result-output.has-error { background: #160c0c; border-left: 3px solid #ef4444; }
 .result-box .btn-sm { margin: 10px 12px; }
 

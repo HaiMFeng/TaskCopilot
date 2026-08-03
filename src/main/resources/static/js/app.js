@@ -394,7 +394,7 @@ async function openCreateTaskModal() {
     state.taskTypes.forEach((t) => {
         const o = document.createElement('option');
         o.value = t.typeCode;
-        o.textContent = t.displayName;
+        o.textContent = t.typeDisplayName;
         sel.appendChild(o);
     });
     function renderCConfig() {
@@ -518,7 +518,7 @@ async function init() {
         state.taskTypes.forEach((t) => {
             const o = document.createElement('option');
             o.value = t.typeCode;
-            o.textContent = t.displayName;
+            o.textContent = t.typeDisplayName;
             sel.appendChild(o);
         });
     } catch (e) {

@@ -176,7 +176,7 @@ createApp({
         }
 
         /* ---------------- 派生显示 ---------------- */
-        const selectedTask = computed(() => tasks.value.find((t) => t.id === selectedTaskId.value) || null);
+        const selectedTask = ref(null);
 
         const currentScheduleName = computed(() => {
             const s = schedules.value.find((x) => x.id === currentScheduleId.value);
@@ -236,6 +236,7 @@ createApp({
             if (currentScheduleId.value === id) return;
             currentScheduleId.value = id;
             selectedTaskId.value = null;
+            selectedTask.value = null;
             await loadTasks();
         }
 
@@ -288,6 +289,7 @@ createApp({
                     currentScheduleId.value = null;
                     tasks.value = [];
                     selectedTaskId.value = null;
+                    selectedTask.value = null;
                 }
             } catch (e) {
                 ElMessage.error(e.message);
@@ -319,7 +321,8 @@ createApp({
 
         function selectTask(id) {
             selectedTaskId.value = id;
-            const task = tasks.value.find((t) => t.id === id);
+            const task = tasks.value.find((t) => t.id === id) || null;
+            selectedTask.value = task;
             if (task) fillForm(task);
         }
 
@@ -395,7 +398,9 @@ createApp({
                 } else {
                     tasks.value = [...tasks.value, fresh];
                 }
-                selectTask(id);
+                selectedTask.value = fresh;
+                selectedTaskId.value = id;
+                fillForm(fresh);
                 await nextTick();
                 if (resultOutput.value) {
                     resultOutput.value.scrollIntoView({behavior: 'smooth', block: 'nearest'});
@@ -441,6 +446,7 @@ createApp({
                 await API.deleteTask(form.id);
                 ElMessage.success('已删除任务');
                 selectedTaskId.value = null;
+                selectedTask.value = null;
                 await loadTasks();
             } catch (e) {
                 ElMessage.error(e.message);
@@ -516,6 +522,10 @@ createApp({
             try {
                 // 仅更新派生状态，不覆盖用户正在编辑的表单
                 tasks.value = await API.listTasksBySchedule(currentScheduleId.value);
+                if (selectedTaskId.value != null) {
+                    const t = tasks.value.find((x) => x.id === selectedTaskId.value);
+                    if (t) selectedTask.value = t;
+                }
             } catch (_) { /* 静默 */ }
         }
 

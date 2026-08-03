@@ -1,38 +1,22 @@
-HELP.md
+# 第三方前端库（Element Plus / Vue 等），体积大且不纳入版本控制
+src/main/resources/static/vendor/
+
+# 运行日志
+*.log
+boot.log
+
+# 构建产物
 target/
-.mvn/wrapper/maven-wrapper.jar
-!**/src/main/**/target/
-!**/src/test/**/target/
+*.class
+*.jar
+*.jar.original
 
-### STS ###
-.apt_generated
-.classpath
-.factorypath
-.project
-.settings
-.springBeans
-.sts4-cache
-
-### IntelliJ IDEA ###
-.idea
-*.iws
-*.iml
-*.ipr
-
-### NetBeans ###
-/nbproject/private/
-/nbbuild/
-/dist/
-/nbdist/
-/.nb-gradle/
-build/
-!**/src/main/**/build/
-!**/src/test/**/build/
-
-### VS Code ###
-.vscode/
-
-### TaskCopilot 运行数据 ###
+# 运行数据
 data/
-*.mv.db
-*.trace.db
+
+# IDE
+.idea/
+
+# 临时脚本
+*.ps1
+.checkpoint

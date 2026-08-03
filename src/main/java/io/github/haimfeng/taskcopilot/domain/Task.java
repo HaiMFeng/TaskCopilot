@@ -38,9 +38,9 @@ public class Task {
     @Column(nullable = false, length = 100)
     private String name;
 
-    /** 要执行的命令或脚本 */
+    /** 要执行的命令或脚本。非运行指令类型（如打开应用、HTTP 请求）由对应 handler 动态生成，可为空 */
     @Lob
-    @Column(nullable = false)
+    @Column(nullable = true)
     private String command;
 
     /** 命令的工作目录，为空时使用应用进程当前目录 */

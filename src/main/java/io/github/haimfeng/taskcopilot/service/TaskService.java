@@ -86,7 +86,7 @@ public class TaskService {
         // 合并进 config 使 handler 的校验/执行与前端 schema 保持一致。
         mergeTopLevelToConfig(request, config);
         handler.validate(config);
-        assertRunCommandContent(request);
+        assertRunCommandContent(request, config);
 
         Task task = new Task();
         apply(task, request, config);
@@ -103,7 +103,7 @@ public class TaskService {
         Map<String, Object> config = request.config() == null ? new LinkedHashMap<>() : new LinkedHashMap<>(request.config());
         mergeTopLevelToConfig(request, config);
         handler.validate(config);
-        assertRunCommandContent(request);
+        assertRunCommandContent(request, config);
 
         // 关键执行要素变更（命令/类型/工作目录/配置）时，旧的运行结果已与新任务不再相关，清空之。
         String newConfigJson = configCodec.write(config);
@@ -198,11 +198,13 @@ public class TaskService {
         }
     }
 
-    /** 运行指令类型必须提供命令内容 */
-    private void assertRunCommandContent(TaskRequest request) {
-        if ("RUN_COMMAND".equals(request.typeCode())
-                && (request.command() == null || request.command().isBlank())) {
-            throw new IllegalArgumentException("运行指令内容不能为空");
+    /** 运行指令类型必须提供命令内容（以 config.command 为真相源，与 handler.validate 一致） */
+    private void assertRunCommandContent(TaskRequest request, Map<String, Object> config) {
+        if ("RUN_COMMAND".equals(request.typeCode())) {
+            Object cmd = config.get("command");
+            if (!(cmd instanceof String s) || s.isBlank()) {
+                throw new IllegalArgumentException("运行指令内容不能为空");
+            }
         }
     }
 
@@ -211,7 +213,11 @@ public class TaskService {
         // 运行指令等类型以 config 内的 command/workingDir/timeoutSeconds 为真相源，
         // 顶层字段同步写入实体，保证列表展示与执行器读取一致。
         Object cfgCommand = config.get("command");
-        task.setCommand(cfgCommand instanceof String s ? s : request.command());
+        // command 列在数据库中为 NOT NULL。运行指令类型由用户在 config 中提供；
+        // 其它类型（打开应用/HTTP 请求）的命令由对应 handler 在执行时根据 config 动态生成，
+        // 此处用一个占位非空值满足约束，不影响实际执行逻辑。
+        String command = cfgCommand instanceof String s && !s.isBlank() ? s : request.command();
+        task.setCommand(command != null && !command.isBlank() ? command : "noop");
         Object cfgWorkdir = config.get("workingDir");
         task.setWorkingDir(blankToNull(cfgWorkdir instanceof String s ? s : request.workingDir()));
         task.setTypeCode(request.typeCode());

@@ -272,11 +272,24 @@ function renderConfigFields(typeCode, config) {
         const label = document.createElement('label');
         label.className = 'field';
         label.innerHTML = `<span>${escapeHtml(field.label)}${field.required ? ' *' : ''}</span>`;
-        const input = document.createElement(field.type === 'number' ? 'input' : 'input');
-        input.type = field.type === 'number' ? 'number' : 'text';
-        if (field.type === 'number') input.min = field.min ?? 0;
-        if (field.max != null) input.max = field.max;
-        input.value = val;
+        let input;
+        if (field.type === 'select') {
+            input = document.createElement('select');
+            (field.options || []).forEach((opt) => {
+                const o = document.createElement('option');
+                o.value = opt.value;
+                o.textContent = opt.label;
+                input.appendChild(o);
+            });
+            input.value = val;
+        } else {
+            input = document.createElement('input');
+            input.type = field.type === 'number' ? 'number'
+                    : field.type === 'time' ? 'time' : 'text';
+            if (field.type === 'number') input.min = field.min ?? 0;
+            if (field.max != null) input.max = field.max;
+            input.value = val;
+        }
         input.dataset.config = field.name;
         label.appendChild(input);
         box.appendChild(label);
@@ -287,7 +300,13 @@ function collectConfig() {
     const cfg = {};
     $$('#configFields [data-config]').forEach((el) => {
         const name = el.dataset.config;
-        cfg[name] = el.type === 'number' ? (el.value === '' ? null : Number(el.value)) : el.value;
+        if (el.tagName === 'SELECT') {
+            cfg[name] = el.value;
+        } else if (el.type === 'number') {
+            cfg[name] = el.value === '' ? null : Number(el.value);
+        } else {
+            cfg[name] = el.value;
+        }
     });
     return cfg;
 }
@@ -387,11 +406,24 @@ async function openCreateTaskModal() {
             const label = document.createElement('label');
             label.className = 'field';
             label.innerHTML = `<span>${escapeHtml(field.label)}${field.required ? ' *' : ''}</span>`;
-            const input = document.createElement('input');
-            input.type = field.type === 'number' ? 'number' : 'text';
-            if (field.type === 'number') input.min = field.min ?? 0;
-            if (field.max != null) input.max = field.max;
-            input.value = field.default != null ? field.default : '';
+            let input;
+            if (field.type === 'select') {
+                input = document.createElement('select');
+                (field.options || []).forEach((opt) => {
+                    const o = document.createElement('option');
+                    o.value = opt.value;
+                    o.textContent = opt.label;
+                    input.appendChild(o);
+                });
+                input.value = field.default != null ? field.default : '';
+            } else {
+                input = document.createElement('input');
+                input.type = field.type === 'number' ? 'number'
+                        : field.type === 'time' ? 'time' : 'text';
+                if (field.type === 'number') input.min = field.min ?? 0;
+                if (field.max != null) input.max = field.max;
+                input.value = field.default != null ? field.default : '';
+            }
             input.dataset.config = field.name;
             label.appendChild(input);
             box.appendChild(label);

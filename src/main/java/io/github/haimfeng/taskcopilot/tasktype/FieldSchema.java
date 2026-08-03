@@ -42,4 +42,8 @@ public record FieldSchema(
     public static FieldSchema select(String name, String label, List<Map<String, Object>> options, Object defaultValue) {
         return new FieldSchema(name, label, "select", true, defaultValue, null, null, options, null);
     }
+
+    public static FieldSchema time(String name, String label, String defaultValue) {
+        return new FieldSchema(name, label, "time", true, defaultValue, null, null, null, null);
+    }
 }

@@ -37,27 +37,26 @@ public class DailyTaskTypeHandler implements TaskTypeHandler {
     @Override
     public List<FieldSchema> configSchema() {
         return List.of(
-                FieldSchema.number("hour", "小时", 0, 23, 8),
-                FieldSchema.number("minute", "分钟", 0, 59, 0)
+                FieldSchema.time("time", "执行时间", "08:30")
         );
     }
 
     @Override
     public void validate(Map<String, Object> config) {
-        int hour = intValue(config, "hour", -1);
-        int minute = intValue(config, "minute", -1);
-        if (hour < 0 || hour > 23) {
+        int[] hm = parseTime(config);
+        if (hm[0] < 0 || hm[0] > 23) {
             throw new IllegalArgumentException("小时必须在 0-23 之间");
         }
-        if (minute < 0 || minute > 59) {
+        if (hm[1] < 0 || hm[1] > 59) {
             throw new IllegalArgumentException("分钟必须在 0-59 之间");
         }
     }
 
     @Override
     public Optional<Instant> nextExecution(Map<String, Object> config, Instant from) {
-        int hour = intValue(config, "hour", 0);
-        int minute = intValue(config, "minute", 0);
+        int[] hm = parseTime(config);
+        int hour = hm[0];
+        int minute = hm[1];
         ZoneId zone = ZoneId.systemDefault();
         ZonedDateTime base = from.atZone(zone);
         ZonedDateTime candidate = ZonedDateTime.of(
@@ -70,7 +69,33 @@ public class DailyTaskTypeHandler implements TaskTypeHandler {
 
     @Override
     public String summary(Map<String, Object> config) {
-        return "每日 %02d:%02d".formatted(intValue(config, "hour", 0), intValue(config, "minute", 0));
+        int[] hm = parseTime(config);
+        return "每日 %02d:%02d".formatted(hm[0], hm[1]);
+    }
+
+    /**
+     * 解析执行时间。优先读取 {@code time} 字段（"HH:mm" 或 "HH:mm:ss"），
+     * 兼容旧版 {@code hour}/{@code minute} 两个独立字段。
+     */
+    private static int[] parseTime(Map<String, Object> config) {
+        if (config == null) {
+            return new int[]{8, 30};
+        }
+        Object raw = config.get("time");
+        if (raw instanceof String text && !text.isBlank()) {
+            String t = text.trim();
+            try {
+                String[] parts = t.split(":");
+                int h = Integer.parseInt(parts[0]);
+                int m = parts.length > 1 ? Integer.parseInt(parts[1]) : 0;
+                return new int[]{h, m};
+            } catch (NumberFormatException ignored) {
+                // 继续走兼容解析
+            }
+        }
+        int hour = intValue(config, "hour", 8);
+        int minute = intValue(config, "minute", 30);
+        return new int[]{hour, minute};
     }
 
     private static int intValue(Map<String, Object> config, String key, int fallback) {

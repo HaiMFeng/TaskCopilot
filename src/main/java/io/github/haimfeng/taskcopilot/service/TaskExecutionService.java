@@ -34,18 +34,22 @@ public class TaskExecutionService {
     private final TaskTypeRegistry taskTypeRegistry;
     private final TaskConfigCodec configCodec;
     private final Semaphore concurrencyLimiter;
+    private final io.github.haimfeng.taskcopilot.service.TaskScheduler taskScheduler;
 
     public TaskExecutionService(CommandExecutor commandExecutor,
                                 TaskLogRepository taskLogRepository,
                                 TaskCopilotProperties properties,
                                 TaskTypeRegistry taskTypeRegistry,
-                                TaskConfigCodec configCodec) {
+                                TaskConfigCodec configCodec,
+                                @org.springframework.context.annotation.Lazy
+                                io.github.haimfeng.taskcopilot.service.TaskScheduler taskScheduler) {
         this.commandExecutor = commandExecutor;
         this.taskLogRepository = taskLogRepository;
         this.properties = properties;
         this.taskTypeRegistry = taskTypeRegistry;
         this.configCodec = configCodec;
         this.concurrencyLimiter = new Semaphore(Math.max(1, properties.getMaxConcurrentExecutions()));
+        this.taskScheduler = taskScheduler;
     }
 
     /**
@@ -65,6 +69,9 @@ public class TaskExecutionService {
             log.info("开始执行任务 [{}] ({})", task.getName(), triggerSource);
             CommandExecutor.ExecutionResult result = runByType(task);
             log.info("任务 [{}] 执行结束，状态={}, 退出码={}", task.getName(), result.status(), result.exitCode());
+            if (result.status() == ExecutionStatus.FAILURE) {
+                taskScheduler.markError();
+            }
             return saveLog(task, triggerSource, result);
         } finally {
             concurrencyLimiter.release();

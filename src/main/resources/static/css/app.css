@@ -99,16 +99,31 @@ body {
 .mode-option.active { color: #fff; font-weight: 600; }
 
 .topbar-right { margin-left: auto; }
+/* 顶栏状态药丸与详情页 result-badge 统一视觉风格 */
 .state-pill {
     font-size: 12px;
-    padding: 5px 12px;
+    font-weight: 600;
+    padding: 2px 10px;
     border-radius: 999px;
-    background: var(--bg-input);
-    border: 1px solid var(--border);
+    background: rgba(154, 163, 178, 0.15);
+    border: 1px solid rgba(154, 163, 178, 0.4);
     color: var(--text-dim);
 }
-.state-pill.running { color: var(--accent-2); border-color: rgba(56, 211, 159, .4); }
-.state-pill.paused { color: var(--warn); border-color: rgba(255, 180, 84, .4); }
+.state-pill.running {
+    background: rgba(56, 211, 159, 0.15);
+    color: #38cb89;
+    border-color: rgba(56, 211, 159, 0.4);
+}
+.state-pill.paused {
+    background: rgba(154, 163, 178, 0.15);
+    color: var(--text-dim);
+    border-color: rgba(154, 163, 178, 0.4);
+}
+.state-pill.error {
+    background: rgba(239, 68, 68, 0.15);
+    color: #ef4444;
+    border-color: rgba(239, 68, 68, 0.4);
+}
 
 /* ---------- 主视图 ---------- */
 #mainView { flex: 1; min-height: 0; display: flex; }
@@ -248,6 +263,18 @@ body {
     transition: border-color .15s;
 }
 .field input:focus, .field textarea:focus, .field select:focus { border-color: var(--accent); }
+/* Element Plus 组件内部自带输入框由 wrapper 管理边框，取消通用 .field input 样式以免双层 */
+.field .el-input__inner,
+.field .el-textarea__inner,
+.modal-form .el-input__inner,
+.modal-form .el-textarea__inner {
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    padding: 0;
+    color: var(--text);
+    font-size: inherit;
+}
 .field textarea { resize: vertical; min-height: 64px; }
 
 /* 统一下拉框样式（深色 + 自定义箭头），与整体 UI 一致，消除聚焦闪烁 */
@@ -320,9 +347,11 @@ body {
 .result-badge { font-size: 12px; padding: 2px 10px; border-radius: 999px; font-weight: 600; }
 .result-badge.ok { background: rgba(56, 203, 137, 0.15); color: #38cb89; border: 1px solid rgba(56, 203, 137, 0.4); }
 .result-badge.fail { background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.4); }
+.result-badge.idle { background: rgba(154, 163, 178, 0.15); color: var(--text-dim); border: 1px solid rgba(154, 163, 178, 0.4); }
 .result-meta { font-size: 12px; color: var(--text-dim); margin-left: auto; }
 .result-output { margin: 0; padding: 12px; font-size: 13px; line-height: 1.5; white-space: pre-wrap; word-break: break-all; max-height: 300px; overflow-y: auto; background: #0c0e12; }
 .result-output.has-error { background: #160c0c; border-left: 3px solid #ef4444; }
+.result-output.is-empty { color: var(--text-dim); }
 .result-box .btn-sm { margin: 10px 12px; }
 
 /* ---------- 按钮 ---------- */
@@ -447,18 +476,23 @@ body {
 .el-select__wrapper,
 .el-input-number .el-input__wrapper {
     background-color: var(--bg-input) !important;
-    box-shadow: 0 0 0 1px var(--border) inset !important;
+    border: 1px solid var(--border) !important;
     border-radius: 8px !important;
+    box-shadow: none !important;
+}
+.el-input__inner {
+    background-color: transparent !important;
+    box-shadow: none !important;
 }
 .el-input__wrapper:hover,
 .el-textarea__inner:hover,
 .el-select__wrapper:hover {
-    box-shadow: 0 0 0 1px var(--accent) inset !important;
+    border-color: var(--accent) !important;
 }
 .el-input__wrapper.is-focus,
 .el-select__wrapper.is-focused,
 .el-textarea__inner:focus {
-    box-shadow: 0 0 0 1px var(--accent) inset !important;
+    border-color: var(--accent) !important;
 }
 .el-input__inner,
 .el-textarea__inner,

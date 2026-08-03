@@ -1,10 +1,11 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh-CN" class="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>TaskCopilot · 任务管理</title>
     <link rel="stylesheet" href="/vendor/index.css">
+    <link rel="stylesheet" href="/vendor/dark/css-vars.css">
     <link rel="stylesheet" href="/css/app.css">
 </head>
 <body>
@@ -141,11 +142,9 @@
                                 </template>
                                 <span v-else class="result-badge idle">尚未运行</span>
                             </div>
-                            <pre v-if="hasRun"
-                                 ref="resultOutput"
+                            <pre ref="resultOutput"
                                  class="result-output"
-                                 :class="{ 'has-error': resultHasError }">{{ resultText }}</pre>
-                            <p v-else class="placeholder-sub">该任务尚未执行过，创建并启用后将按调度时间运行。</p>
+                                 :class="{ 'has-error': hasRun && resultHasError, 'is-empty': !hasRun }">{{ hasRun ? resultText : '该任务尚未执行过，创建并启用后将按调度时间运行。' }}</pre>
                             <button type="button" class="btn-ghost btn-sm" @click="viewHistory">查看完整历史</button>
                         </div>
 

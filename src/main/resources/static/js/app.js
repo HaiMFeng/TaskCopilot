@@ -186,11 +186,14 @@ createApp({
         const schedulerText = computed(() => {
             const info = schedulerInfo.value;
             if (!info) return '—';
-            return info.schedulerPaused ? '已暂停' : `运行中 · ${info.scheduledCount} 个任务`;
+            if (info.schedulerError) return `运行错误 · ${info.scheduledCount} 个任务`;
+            if (info.schedulerPaused) return '已暂停';
+            return `运行中 · ${info.scheduledCount} 个任务`;
         });
         const schedulerPillClass = computed(() => {
             const info = schedulerInfo.value;
             if (!info) return '';
+            if (info.schedulerError) return 'error';
             return info.schedulerPaused ? 'paused' : 'running';
         });
 

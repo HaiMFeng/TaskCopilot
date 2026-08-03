@@ -42,6 +42,7 @@ public class SystemController {
         info.put("uptimeSeconds", Duration.ofMillis(
                 ManagementFactory.getRuntimeMXBean().getUptime()).toSeconds());
         info.put("schedulerPaused", taskScheduler.isGloballyPaused());
+        info.put("schedulerError", taskScheduler.isSchedulerError());
         info.put("scheduledCount", taskScheduler.scheduledCount());
         return info;
     }
@@ -50,6 +51,7 @@ public class SystemController {
     public Map<String, Object> schedulerStatus() {
         return Map.of(
                 "paused", taskScheduler.isGloballyPaused(),
+                "error", taskScheduler.isSchedulerError(),
                 "scheduledCount", taskScheduler.scheduledCount());
     }
 

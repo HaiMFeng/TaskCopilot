@@ -44,6 +44,8 @@ public class TaskScheduler {
     private final Map<Long, Instant> nextExecutions = new ConcurrentHashMap<>();
 
     private final AtomicBoolean globallyPaused = new AtomicBoolean(false);
+    /** 调度器整体运行是否处于异常状态（执行/排期失败时置位） */
+    private final AtomicBoolean schedulerError = new AtomicBoolean(false);
 
     public TaskScheduler(ThreadPoolTaskScheduler taskCopilotScheduler,
                          TaskRepository taskRepository,
@@ -71,6 +73,7 @@ public class TaskScheduler {
         taskRepository.findByEnabledTrueOrderBySortOrderAscIdAsc().stream()
                 .filter(this::belongsToActiveSchedule)
                 .forEach(this::schedule);
+        schedulerError.set(false);
         log.info("已注册 {} 个定时任务", scheduled.size());
     }
 
@@ -162,6 +165,15 @@ public class TaskScheduler {
 
     public boolean isGloballyPaused() {
         return globallyPaused.get();
+    }
+
+    public boolean isSchedulerError() {
+        return schedulerError.get();
+    }
+
+    /** 标记调度器整体进入异常状态（任务执行失败时调用） */
+    public void markError() {
+        schedulerError.set(true);
     }
 
     public Instant nextExecutionOf(Long taskId) {

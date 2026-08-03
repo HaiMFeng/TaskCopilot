@@ -570,7 +570,7 @@ createApp({
             saving, running, creating,
             createVisible, historyVisible, historyText, resultOutput,
             schedulerText, schedulerPillClass, statusClass, lastStatusSuffix,
-            showResult, resultHasError, resultBadgeClass, resultBadgeText, resultText,
+            showResult, hasRun, resultHasError, resultBadgeClass, resultBadgeText, resultText,
             selectSchedule, createSchedule, activateSchedule, deleteSchedule,
             selectTask, toggleTask, saveDetail, runTask, viewHistory, deleteTask,
             openCreateTask, submitCreate,

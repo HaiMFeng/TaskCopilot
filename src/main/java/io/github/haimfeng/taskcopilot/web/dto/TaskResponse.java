@@ -21,6 +21,9 @@ public record TaskResponse(
         String remark,
         Instant lastExecutedAt,
         String lastStatus,
+        Integer lastExitCode,
+        String lastStdout,
+        String lastStderr,
         Instant nextExecutionAt,
         Instant createdAt,
         Instant updatedAt

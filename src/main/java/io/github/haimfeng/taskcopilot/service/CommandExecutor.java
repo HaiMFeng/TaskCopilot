@@ -11,8 +11,10 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.List;
+import java.util.Locale;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -44,8 +46,9 @@ public class CommandExecutor {
             }
             process = builder.start();
 
-            StreamCollector out = new StreamCollector(process.getInputStream());
-            StreamCollector err = new StreamCollector(process.getErrorStream());
+            Charset charset = outputCharset();
+            StreamCollector out = new StreamCollector(process.getInputStream(), charset);
+            StreamCollector err = new StreamCollector(process.getErrorStream(), charset);
             Thread outThread = Thread.ofVirtual().start(out);
             Thread errThread = Thread.ofVirtual().start(err);
 
@@ -87,10 +90,22 @@ public class CommandExecutor {
      * 用系统 shell 包装命令，以便支持管道、重定向等写法。
      */
     private List<String> shellCommand(String command) {
-        boolean windows = System.getProperty("os.name", "").toLowerCase().contains("win");
+        boolean windows = isWindows();
         return windows
                 ? List.of("cmd.exe", "/c", command)
                 : List.of("/bin/sh", "-c", command);
+    }
+
+    /**
+     * 子进程输出流的字符集：Windows 下 cmd 默认以 GBK 输出中文，
+     * 按平台正确解码可避免 stdout/stderr 在结果展示时乱码。
+     */
+    private Charset outputCharset() {
+        return isWindows() ? Charset.forName("GBK") : StandardCharsets.UTF_8;
+    }
+
+    private static boolean isWindows() {
+        return System.getProperty("os.name", "").toLowerCase(Locale.ROOT).contains("win");
     }
 
     private String truncate(String text) {
@@ -126,16 +141,18 @@ public class CommandExecutor {
      */
     private static final class StreamCollector implements Runnable {
         private final InputStream stream;
+        private final Charset charset;
         private final StringBuilder buffer = new StringBuilder();
 
-        private StreamCollector(InputStream stream) {
+        private StreamCollector(InputStream stream, Charset charset) {
             this.stream = stream;
+            this.charset = charset;
         }
 
         @Override
         public void run() {
             try (BufferedReader reader = new BufferedReader(
-                    new InputStreamReader(stream, Charset.defaultCharset()))) {
+                    new InputStreamReader(stream, charset))) {
                 String line;
                 while ((line = reader.readLine()) != null) {
                     synchronized (buffer) {

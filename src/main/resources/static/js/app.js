@@ -256,10 +256,34 @@ async function selectTask(id) {
     $('#f_timeoutSeconds').value = task.timeoutSeconds || '';
     $('#f_enabled').checked = task.enabled;
     $('#f_remark').value = task.remark || '';
-    $('#detailNext').textContent = '下次执行：' + fmtTime(task.nextExecution);
-    $('#detailLast').textContent = '最近执行：' + fmtTime(task.lastRunAt) + (task.lastStatus ? `（${task.lastStatus === 'SUCCESS' ? '成功' : '失败'}）` : '');
+    $('#detailNext').textContent = '下次执行：' + fmtTime(task.nextExecutionAt);
+    $('#detailLast').textContent = '最近执行：' + fmtTime(task.lastExecutedAt) + (task.lastStatus ? `（${task.lastStatus === 'SUCCESS' ? '成功' : '失败'}）` : '');
     $('#logBox').classList.add('hidden');
+    renderLastResult(task);
     renderConfigFields(task.typeCode, task.config || {});
+}
+
+function renderLastResult(task) {
+    const box = $('#resultBox');
+    if (!task.lastExecutedAt || !task.lastStatus) {
+        box.classList.add('hidden');
+        return;
+    }
+    box.classList.remove('hidden');
+    const statusText = task.lastStatus === 'SUCCESS' ? '成功'
+            : task.lastStatus === 'TIMEOUT' ? '超时' : '失败';
+    const badge = $('#resultBadge');
+    badge.textContent = statusText + (task.lastExitCode != null ? ` · 退出码 ${task.lastExitCode}` : '');
+    badge.className = 'result-badge ' + (
+        task.lastStatus === 'SUCCESS' ? 'ok' : 'fail');
+    $('#resultMeta').textContent = fmtTime(task.lastExecutedAt);
+
+    const output = [];
+    if (task.lastStdout) output.push('--- stdout ---\n' + task.lastStdout);
+    if (task.lastStderr) output.push('--- stderr ---\n' + task.lastStderr);
+    const text = output.join('\n\n');
+    $('#resultOutput').textContent = text || '（无输出）';
+    $('#resultOutput').classList.toggle('has-error', task.lastStatus !== 'SUCCESS');
 }
 
 function renderConfigFields(typeCode, config) {
@@ -341,6 +365,8 @@ async function runTask() {
         const log = await API.executeTask(id);
         await loadTasks();
         selectTask(id);
+        const task = state.tasks.find((t) => t.id === id);
+        renderLastResult(task);
         $('#logBox').classList.remove('hidden');
         $('#logContent').textContent = `退出码：${log.exitCode}\n状态：${log.status}\n\n--- stdout ---\n${log.stdout || ''}\n--- stderr ---\n${log.stderr || ''}`;
     } catch (e) {
@@ -348,8 +374,31 @@ async function runTask() {
     }
 }
 
-async function deleteTask() {
+async function viewHistory() {
     const id = Number($('#detailId').value);
+    try {
+        const logs = await API.taskLogs(id, 20);
+        if (!logs || logs.length === 0) {
+            toast('暂无历史记录', true);
+            return;
+        }
+        const text = logs.map((l, i) => {
+            const head = `#${logs.length - i}  ${fmtTime(l.startedAt)}  [${l.status}]  退出码 ${l.exitCode}`;
+            const out = [
+                l.stdout ? `--- stdout ---\n${l.stdout}` : '',
+                l.stderr ? `--- stderr ---\n${l.stderr}` : ''
+            ].filter(Boolean).join('\n');
+            return head + (out ? '\n' + out : '');
+        }).join('\n\n' + '─'.repeat(40) + '\n\n');
+        $('#logBox').classList.remove('hidden');
+        $('#logContent').textContent = text;
+        $('#logContent').scrollIntoView({behavior: 'smooth', block: 'nearest'});
+    } catch (e) {
+        toast(e.message, true);
+    }
+}
+
+async function deleteTask() {    const id = Number($('#detailId').value);
     if (!confirm('确定删除该任务？')) return;
     try {
         await API.deleteTask(id);
@@ -498,6 +547,7 @@ async function init() {
     });
     $('#btnRunTask').addEventListener('click', runTask);
     $('#btnDeleteTask').addEventListener('click', deleteTask);
+    $('#btnViewHistory').addEventListener('click', viewHistory);
 
     // 双击日程表项可切换为运行中的日程表；右键删除
     $('#scheduleList').addEventListener('dblclick', (e) => {

@@ -208,6 +208,9 @@ public class TaskService {
                 task.getRemark(),
                 lastLog.map(TaskLog::getStartedAt).orElse(null),
                 lastLog.map(l -> l.getStatus().name()).orElse(null),
+                lastLog.map(TaskLog::getExitCode).orElse(null),
+                lastLog.map(TaskLog::getStdout).orElse(null),
+                lastLog.map(TaskLog::getStderr).orElse(null),
                 next,
                 task.getCreatedAt(),
                 task.getUpdatedAt()

@@ -4,121 +4,200 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>TaskCopilot · 任务管理</title>
+    <link rel="stylesheet" href="/vendor/index.css">
     <link rel="stylesheet" href="/css/app.css">
 </head>
 <body>
-<header class="topbar">
-    <div class="brand">
-        <span class="logo">⏱</span>
-        <span class="brand-name">TaskCopilot</span>
-    </div>
+<div id="app" v-cloak>
+    <header class="topbar">
+        <div class="brand">
+            <span class="logo">⏱</span>
+            <span class="brand-name">TaskCopilot</span>
+        </div>
 
-    <!-- 顶部模式切换滑块 -->
-    <div class="mode-switch" role="tablist" aria-label="模式切换">
-        <div class="mode-thumb" id="modeThumb"></div>
-        <button class="mode-option active" data-mode="daily" role="tab">每日任务</button>
-        <button class="mode-option" data-mode="immediate" role="tab">立即任务</button>
-    </div>
+        <div class="mode-switch" role="tablist" aria-label="模式切换">
+            <div class="mode-thumb" :style="thumbStyle"></div>
+            <button v-for="m in modes"
+                    :key="m.key"
+                    :ref="el => setModeRef(m.key, el)"
+                    class="mode-option"
+                    :class="{ active: mode === m.key }"
+                    role="tab"
+                    @click="switchMode(m.key)">{{ m.label }}</button>
+        </div>
 
-    <div class="topbar-right">
-        <span id="schedulerState" class="state-pill" title="调度状态">—</span>
-    </div>
-</header>
+        <div class="topbar-right">
+            <span class="state-pill" :class="schedulerPillClass" title="调度状态">{{ schedulerText }}</span>
+        </div>
+    </header>
 
-<main id="mainView">
-    <!-- ===== 每日任务视图 ===== -->
-    <section id="dailyView" class="mode-view">
-        <!-- 日程表选择条 -->
-        <div class="schedule-rail">
-            <div class="schedule-rail-head">
-                <span class="section-title">日程表</span>
-                <button id="btnAddSchedule" class="btn-ghost" title="新建日程表">＋</button>
+    <main id="mainView">
+        <!-- ===== 每日任务视图 ===== -->
+        <section v-show="mode === 'daily'" class="mode-view">
+            <div class="schedule-rail">
+                <div class="schedule-rail-head">
+                    <span class="section-title">日程表</span>
+                    <button class="btn-ghost" title="新建日程表" @click="createSchedule">＋</button>
+                </div>
+                <div class="schedule-list">
+                    <div v-if="schedules.length === 0" class="empty-hint">暂无日程表，点击 ＋ 创建</div>
+                    <div v-for="s in schedules"
+                         :key="s.id"
+                         class="schedule-item"
+                         :class="{ running: s.active, selected: s.id === currentScheduleId }"
+                         @click="selectSchedule(s.id)"
+                         @dblclick="activateSchedule(s.id)"
+                         @contextmenu.prevent="deleteSchedule(s.id)">
+                        <div class="schedule-meta">
+                            <span class="schedule-dot"></span>
+                            <span class="schedule-name">{{ s.name }}</span>
+                        </div>
+                        <span class="schedule-count">{{ s.taskCount }} 任务</span>
+                    </div>
+                </div>
             </div>
-            <div id="scheduleList" class="schedule-list"></div>
-        </div>
 
-        <!-- 左右分栏 -->
-        <div class="split">
-            <aside class="task-list-pane">
-                <div class="pane-head">
-                    <span class="section-title" id="currentScheduleName">任务列表</span>
-                    <button id="btnAddTask" class="btn-primary" disabled>＋ 新建任务</button>
-                </div>
-                <p class="pane-hint">列表随运行时间自动排序，拖拽可调整顺序。</p>
-                <ul id="taskList" class="task-list"></ul>
-                <div id="taskListEmpty" class="empty-hint hidden">该日程表下暂无任务</div>
-            </aside>
+            <div class="split">
+                <aside class="task-list-pane">
+                    <div class="pane-head">
+                        <span class="section-title">{{ currentScheduleName }}</span>
+                        <button class="btn-primary" :disabled="!currentScheduleId" @click="openCreateTask">＋ 新建任务</button>
+                    </div>
+                    <p class="pane-hint">列表随运行时间自动排序，拖拽可调整顺序。</p>
 
-            <section class="task-detail-pane">
-                <div id="detailPlaceholder" class="detail-placeholder">
-                    <div class="placeholder-icon">📋</div>
-                    <p>从左侧选择一个任务查看与编辑详情</p>
-                </div>
-                <form id="detailForm" class="detail-form hidden">
-                    <div class="detail-head">
-                        <h2>任务详情</h2>
-                        <div class="detail-actions">
-                            <button type="button" id="btnRunTask" class="btn-ghost">立即执行</button>
-                            <button type="submit" class="btn-primary">保存</button>
+                    <ul class="task-list">
+                        <li v-for="(t, idx) in tasks"
+                            :key="t.id"
+                            class="task-item"
+                            :class="{ selected: t.id === selectedTaskId, dragging: dragIndex === idx }"
+                            draggable="true"
+                            @click="selectTask(t.id)"
+                            @dragstart="onDragStart(idx)"
+                            @dragover.prevent="onDragOver(idx)"
+                            @dragend="onDragEnd">
+                            <span class="drag-handle">⋮⋮</span>
+                            <span class="task-status" :class="statusClass(t)"></span>
+                            <span class="task-name">{{ t.name }}</span>
+                            <span class="task-type-badge">{{ t.typeName }}</span>
+                            <span class="task-toggle" @click.stop>
+                                <el-switch :model-value="t.enabled"
+                                           size="small"
+                                           @update:model-value="val => toggleTask(t, val)"/>
+                            </span>
+                        </li>
+                    </ul>
+                    <div v-if="tasks.length === 0" class="empty-hint">该日程表下暂无任务</div>
+                </aside>
+
+                <section class="task-detail-pane">
+                    <div v-if="!selectedTask" class="detail-placeholder">
+                        <div class="placeholder-icon">📋</div>
+                        <p>从左侧选择一个任务查看与编辑详情</p>
+                    </div>
+
+                    <el-form v-else class="detail-form" label-position="top" @submit.prevent="saveDetail">
+                        <div class="detail-head">
+                            <h2>任务详情</h2>
+                            <div class="detail-actions">
+                                <button type="button" class="btn-ghost" :disabled="running" @click="runTask">
+                                    {{ running ? '执行中…' : '立即执行' }}
+                                </button>
+                                <button type="submit" class="btn-primary" :disabled="saving">
+                                    {{ saving ? '保存中…' : '保存' }}
+                                </button>
+                            </div>
                         </div>
-                    </div>
-                    <input type="hidden" id="detailId">
-                    <label class="field">
-                        <span>名称</span>
-                        <input type="text" id="f_name" required maxlength="100">
-                    </label>
-                    <label class="field">
-                        <span>类型</span>
-                        <select id="f_typeCode"></select>
-                    </label>
-                    <div id="configFields" class="config-fields"></div>
-                    <label class="field">
-                        <span>备注(Hint)</span>
-                        <textarea id="f_remark" rows="2" maxlength="255"></textarea>
-                    </label>
-                    <div class="detail-meta">
-                        <span id="detailNext">下次执行：—</span>
-                        <span id="detailLast">最近执行：—</span>
-                    </div>
-                    <div id="resultBox" class="result-box hidden">
-                        <div class="result-head">
-                            <span class="section-title">上次运行结果</span>
-                            <span id="resultBadge" class="result-badge"></span>
-                            <span id="resultMeta" class="result-meta"></span>
+
+                        <el-form-item label="名称">
+                            <el-input v-model="form.name" maxlength="100" show-word-limit placeholder="任务名称"/>
+                        </el-form-item>
+
+                        <el-form-item label="类型">
+                            <el-select v-model="form.typeCode" style="width:100%" @change="onTypeChange">
+                                <el-option v-for="tt in taskTypes"
+                                           :key="tt.typeCode"
+                                           :label="tt.typeDisplayName"
+                                           :value="tt.typeCode"/>
+                            </el-select>
+                        </el-form-item>
+
+                        <config-fields :schema="detailSchema" :model="form.config" @update="onDetailFieldUpdate"/>
+
+                        <el-form-item label="备注(Hint)">
+                            <el-input v-model="form.remark" type="textarea" :rows="2" maxlength="255" show-word-limit/>
+                        </el-form-item>
+
+                        <div class="detail-meta">
+                            <span>下次执行：{{ fmtTime(selectedTask.nextExecutionAt) }}</span>
+                            <span>最近执行：{{ fmtTime(selectedTask.lastExecutedAt) }}{{ lastStatusSuffix }}</span>
                         </div>
-                        <pre id="resultOutput" class="result-output"></pre>
-                        <button type="button" id="btnViewHistory" class="btn-ghost btn-sm">查看完整历史</button>
-                    </div>
-                    <button type="button" id="btnDeleteTask" class="btn-danger-ghost">删除任务</button>
-                </form>
-            </section>
-        </div>
-    </section>
 
-    <!-- ===== 立即任务占位 ===== -->
-    <section id="immediateView" class="mode-view hidden">
-        <div class="placeholder-card">
-            <div class="placeholder-icon">⚡</div>
-            <h2>立即任务</h2>
-            <p>该模块正在建设中，敬请期待。</p>
-            <p class="placeholder-sub">立即任务将支持临时编排、一次性并发执行等能力。</p>
-        </div>
-    </section>
-</main>
+                        <div v-if="showResult" class="result-box">
+                            <div class="result-head">
+                                <span class="section-title">上次运行结果</span>
+                                <span class="result-badge" :class="resultBadgeClass">{{ resultBadgeText }}</span>
+                                <span class="result-meta">{{ fmtTime(selectedTask.lastExecutedAt) }}</span>
+                            </div>
+                            <pre ref="resultOutput"
+                                 class="result-output"
+                                 :class="{ 'has-error': resultHasError }">{{ resultText }}</pre>
+                            <button type="button" class="btn-ghost btn-sm" @click="viewHistory">查看完整历史</button>
+                        </div>
 
-<!-- 通用弹窗 -->
-<div id="modalOverlay" class="modal-overlay hidden">
-    <div class="modal">
-        <div class="modal-head">
-            <h3 id="modalTitle">新建</h3>
-            <button class="modal-close" id="modalClose">✕</button>
-        </div>
-        <div class="modal-body" id="modalBody"></div>
-    </div>
+                        <button type="button" class="btn-danger-ghost" @click="deleteTask">删除任务</button>
+                    </el-form>
+                </section>
+            </div>
+        </section>
+
+        <!-- ===== 立即任务占位 ===== -->
+        <section v-show="mode === 'immediate'" class="mode-view">
+            <div class="placeholder-card">
+                <div class="placeholder-icon">⚡</div>
+                <h2>立即任务</h2>
+                <p>该模块正在建设中，敬请期待。</p>
+                <p class="placeholder-sub">立即任务将支持临时编排、一次性并发执行等能力。</p>
+            </div>
+        </section>
+    </main>
+
+    <!-- 新建任务弹窗 -->
+    <el-dialog v-model="createVisible" title="新建任务" width="560px" append-to-body>
+        <el-form class="modal-form" label-position="top" @submit.prevent="submitCreate">
+            <el-form-item label="名称">
+                <el-input v-model="createForm.name" maxlength="100" show-word-limit placeholder="任务名称"/>
+            </el-form-item>
+            <el-form-item label="类型">
+                <el-select v-model="createForm.typeCode" style="width:100%" @change="onCreateTypeChange">
+                    <el-option v-for="tt in taskTypes"
+                               :key="tt.typeCode"
+                               :label="tt.typeDisplayName"
+                               :value="tt.typeCode"/>
+                </el-select>
+            </el-form-item>
+
+            <config-fields :schema="createSchema" :model="createForm.config" @update="onCreateFieldUpdate"/>
+
+            <el-form-item label="备注(Hint)">
+                <el-input v-model="createForm.remark" type="textarea" :rows="2" maxlength="255" show-word-limit/>
+            </el-form-item>
+        </el-form>
+        <template #footer>
+            <button type="button" class="btn-ghost" @click="createVisible = false">取消</button>
+            <button type="button" class="btn-primary" :disabled="creating" @click="submitCreate">
+                {{ creating ? '创建中…' : '创建' }}
+            </button>
+        </template>
+    </el-dialog>
+
+    <!-- 历史记录弹窗 -->
+    <el-dialog v-model="historyVisible" title="执行历史" width="720px" append-to-body>
+        <pre class="result-output history-output">{{ historyText }}</pre>
+    </el-dialog>
 </div>
 
-<div id="toast" class="toast hidden"></div>
-
+<script src="/vendor/vue.global.prod.js"></script>
+<script src="/vendor/index.full.min.js"></script>
 <script src="/js/api.js"></script>
 <script src="/js/app.js"></script>
 </body>

@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TaskCopilot · 任务管理</title>
+    <link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+<header class="topbar">
+    <div class="brand">
+        <span class="logo">⏱</span>
+        <span class="brand-name">TaskCopilot</span>
+    </div>
+
+    <!-- 顶部模式切换滑块 -->
+    <div class="mode-switch" role="tablist" aria-label="模式切换">
+        <div class="mode-thumb" id="modeThumb"></div>
+        <button class="mode-option active" data-mode="daily" role="tab">每日任务</button>
+        <button class="mode-option" data-mode="immediate" role="tab">立即任务</button>
+    </div>
+
+    <div class="topbar-right">
+        <span id="schedulerState" class="state-pill" title="调度状态">—</span>
+    </div>
+</header>
+
+<main id="mainView">
+    <!-- ===== 每日任务视图 ===== -->
+    <section id="dailyView" class="mode-view">
+        <!-- 日程表选择条 -->
+        <div class="schedule-rail">
+            <div class="schedule-rail-head">
+                <span class="section-title">日程表</span>
+                <button id="btnAddSchedule" class="btn-ghost" title="新建日程表">＋</button>
+            </div>
+            <div id="scheduleList" class="schedule-list"></div>
+        </div>
+
+        <!-- 左右分栏 -->
+        <div class="split">
+            <aside class="task-list-pane">
+                <div class="pane-head">
+                    <span class="section-title" id="currentScheduleName">任务列表</span>
+                    <button id="btnAddTask" class="btn-primary" disabled>＋ 新建任务</button>
+                </div>
+                <p class="pane-hint">列表随运行时间自动排序，拖拽可调整顺序。</p>
+                <ul id="taskList" class="task-list"></ul>
+                <div id="taskListEmpty" class="empty-hint hidden">该日程表下暂无任务</div>
+            </aside>
+
+            <section class="task-detail-pane">
+                <div id="detailPlaceholder" class="detail-placeholder">
+                    <div class="placeholder-icon">📋</div>
+                    <p>从左侧选择一个任务查看与编辑详情</p>
+                </div>
+                <form id="detailForm" class="detail-form hidden">
+                    <div class="detail-head">
+                        <h2>任务详情</h2>
+                        <div class="detail-actions">
+                            <button type="button" id="btnRunTask" class="btn-ghost">立即执行</button>
+                            <button type="submit" class="btn-primary">保存</button>
+                        </div>
+                    </div>
+                    <input type="hidden" id="detailId">
+                    <label class="field">
+                        <span>名称</span>
+                        <input type="text" id="f_name" required maxlength="100">
+                    </label>
+                    <label class="field">
+                        <span>类型</span>
+                        <select id="f_typeCode"></select>
+                    </label>
+                    <div id="configFields" class="config-fields"></div>
+                    <label class="field">
+                        <span>备注(Hint)</span>
+                        <textarea id="f_remark" rows="2" maxlength="255"></textarea>
+                    </label>
+                    <div class="detail-meta">
+                        <span id="detailNext">下次执行：—</span>
+                        <span id="detailLast">最近执行：—</span>
+                    </div>
+                    <div id="resultBox" class="result-box hidden">
+                        <div class="result-head">
+                            <span class="section-title">上次运行结果</span>
+                            <span id="resultBadge" class="result-badge"></span>
+                            <span id="resultMeta" class="result-meta"></span>
+                        </div>
+                        <pre id="resultOutput" class="result-output"></pre>
+                        <button type="button" id="btnViewHistory" class="btn-ghost btn-sm">查看完整历史</button>
+                    </div>
+                    <button type="button" id="btnDeleteTask" class="btn-danger-ghost">删除任务</button>
+                </form>
+            </section>
+        </div>
+    </section>
+
+    <!-- ===== 立即任务占位 ===== -->
+    <section id="immediateView" class="mode-view hidden">
+        <div class="placeholder-card">
+            <div class="placeholder-icon">⚡</div>
+            <h2>立即任务</h2>
+            <p>该模块正在建设中，敬请期待。</p>
+            <p class="placeholder-sub">立即任务将支持临时编排、一次性并发执行等能力。</p>
+        </div>
+    </section>
+</main>
+
+<!-- 通用弹窗 -->
+<div id="modalOverlay" class="modal-overlay hidden">
+    <div class="modal">
+        <div class="modal-head">
+            <h3 id="modalTitle">新建</h3>
+            <button class="modal-close" id="modalClose">✕</button>
+        </div>
+        <div class="modal-body" id="modalBody"></div>
+    </div>
+</div>
+
+<div id="toast" class="toast hidden"></div>
+
+<script src="/js/api.js"></script>
+<script src="/js/app.js"></script>
+</body>
+</html>

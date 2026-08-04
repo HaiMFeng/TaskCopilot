@@ -54,5 +54,13 @@ const API = (() => {
         resumeScheduler: () => request('POST', '/system/scheduler/resume'),
         checkPath: (path) => request('POST', '/system/check-path', {path}),
         fetchProcesses: () => request('GET', '/system/processes'),
+
+        // 终端（单一持久终端 + 轮询）
+        terminalState: () => request('GET', '/terminal/state'),
+        terminalOutput: (after) => request('GET', `/terminal/output?after=${after}`),
+        terminalInput: (command, shell) => request('POST', '/terminal/input', {command, shell}),
+        terminalInterrupt: () => request('POST', '/terminal/interrupt'),
+        terminalStart: (shell) => request('POST', '/terminal/start', {shell}),
+        terminalStop: () => request('POST', '/terminal/stop'),
     };
 })();

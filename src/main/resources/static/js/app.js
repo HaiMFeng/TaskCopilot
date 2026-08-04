@@ -5,7 +5,7 @@ const {createApp, ref, reactive, computed, onMounted, onBeforeUnmount, nextTick}
 const {ElMessage, ElMessageBox} = ElementPlus;
 
 // 前端 JS 版本号（修改后请同步递增，便于辨识加载版本）
-const APP_JS_VERSION = '20260804.21';
+const APP_JS_VERSION = '20260804.27';
 
 /** 任务顶级字段（不放进 config，提交时提升到 payload 顶层） */
 const TOP_LEVEL_FIELDS = new Set(['command', 'workingDir', 'timeoutSeconds']);
@@ -477,6 +477,11 @@ createApp({
             if (mode.value === key) return;
             mode.value = key;
             nextTick(moveThumb);
+            if (key === 'terminal') {
+                openTerminalView();
+            } else {
+                stopPoll();
+            }
             if (key === 'schedule' && currentScheduleId.value) {
                 loadTasks();
             }
@@ -1021,7 +1026,6 @@ createApp({
         const termShell = ref('CMD');
         const termInput = ref('');
         const termOutputRef = ref(null);
-        let termSocket = null;
         let termBuf = '';
         let termHasColor = false;
 
@@ -1049,57 +1053,121 @@ createApp({
             if (el) el.textContent = '';
         }
 
-        function startTerminal() {
-            if (termSocket) { try { termSocket.close(); } catch (_) {} termSocket = null; }
-            clearTermOutput();
-            const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-            const qs = termShell.value === 'PowerShell' ? '?powershell' : '';
-            termSocket = new WebSocket(proto + '//' + location.host + '/ws/terminal' + qs);
+        let termSeq = 0;
+        let termTimer = null;
+        let termPolling = false; // 是否处于常驻轮询（在终端页时为真）
 
-            termSocket.onopen = () => {
-                console.log('WebSocket 终端已连接');
+        function stopPoll() {
+            if (termTimer) { clearInterval(termTimer); termTimer = null; }
+            termPolling = false;
+        }
+
+        // 根据后端权威状态，同步本地连接态与终端类型。返回当前是否处于「运行中」。
+        async function syncTerminalState(data) {
+            const running = data.running === true;
+            // 同步终端类型（CMD/PowerShell）：以单例后端为准，所有端保持一致
+            if (data.shell && termShell.value !== data.shell) {
+                termShell.value = data.shell;
+            }
+            if (running && !termRunning.value) {
+                // 其他端启动了本端未连接 → 自动接入
+                termRunning.value = true;
+                termSeq = data.latestSeq || 0;
+                clearTermOutput();
+                appendTermOutput('[已连接到 ' + (data.shell || 'CMD') + ' 终端，输入命令后回车发送]\r\n');
+            } else if (!running && termRunning.value) {
+                // 其他端停止了本端仍在运行 → 自动断开
+                termRunning.value = false;
+                termSeq = 0;
+                clearTermOutput();
+                appendTermOutput('[终端已停止]\r\n');
+            } else if (!running && !termRunning.value) {
+                // 保持未连接提示（仅首次进入渲染一次）
+                if (termOutputRef.value && termOutputRef.value.textContent === '') {
+                    appendTermOutput('[终端未启动，请点击「启动」开始]\r\n');
+                }
+            }
+            return running;
+        }
+
+        async function pollTerminal() {
+            try {
+                const data = await API.terminalOutput(termSeq);
+                const wasRunning = termRunning.value;
+                const running = await syncTerminalState(data);
+                if (running) {
+                    const chunks = data.chunks || [];
+                    for (const c of chunks) {
+                        appendTermOutput(c.text);
+                        if (c.seq > termSeq) termSeq = c.seq;
+                    }
+                }
+            } catch (e) {
+                // 轮询失败不阻断，下次继续
+            }
+        }
+
+        async function startTerminal() {
+            stopPoll();
+            clearTermOutput();
+            termSeq = 0;
+            try {
+                await API.terminalStart(termShell.value);
                 termRunning.value = true;
                 appendTermOutput('[已连接到 ' + termShell.value + ' 终端，输入命令后回车发送]\r\n');
-            };
-            termSocket.onmessage = (e) => {
-                const data = typeof e.data === 'string' ? e.data : new TextDecoder().decode(e.data);
-                appendTermOutput(data);
-            };
-            termSocket.onclose = () => {
-                console.log('WebSocket 终端断开');
+                await pollTerminal();
+                setTimeout(pollTerminal, 400);
+                termTimer = setInterval(pollTerminal, 1000);
+                termPolling = true;
+            } catch (e) {
                 termRunning.value = false;
-                appendTermOutput('\r\n[终端已断开]\r\n');
-            };
-            termSocket.onerror = (e) => {
-                console.error('WebSocket 终端错误', e);
-                termRunning.value = false;
-                ElMessage.error('终端连接失败');
-            };
+                ElMessage.error('终端启动失败: ' + (e.message || e));
+            }
         }
 
-        function stopTerminal() {
-            if (termSocket) { try { termSocket.close(); } catch (_) {} termSocket = null; }
+        async function openTerminalView() {
+            // 进入终端页面即常驻轮询，状态以后端为准自动连接/断开
+            stopPoll();
+            clearTermOutput();
+            termSeq = 0;
+            termPolling = true;
+            termTimer = setInterval(pollTerminal, 1000);
+            await pollTerminal();
+            setTimeout(pollTerminal, 400);
+        }
+
+        async function stopTerminal() {
+            stopPoll();
+            try {
+                await API.terminalStop();
+            } catch (e) {}
+            // 立即本地切停，并停止轮询（本端不再自动重连）
             termRunning.value = false;
-            appendTermOutput('\r\n[已停止]\r\n');
+            termSeq = 0;
+            clearTermOutput();
+            appendTermOutput('[终端已停止]\r\n');
+            // 其他端仍由各自轮询检测到 running=false 自动同步
         }
 
-        function sendTerminalCommand() {
+        async function sendTerminalCommand() {
             const cmd = termInput.value;
-            if (!termSocket || termSocket.readyState !== WebSocket.OPEN) {
+            if (!termRunning.value) {
                 ElMessage.warning('终端未连接');
                 return;
             }
-            // 不在此处自行回显命令：cmd/powershell 会把输入回显到 stdout，
-            // 后端转发回来后由 appendTermOutput 显示，避免命令重复出现。
-            termSocket.send(cmd + '\r\n');
-            termInput.value = '';
+            try {
+                await API.terminalInput(cmd, termShell.value);
+                termInput.value = '';
+            } catch (e) {
+                ElMessage.error('发送失败: ' + (e.message || e));
+            }
         }
 
-        function sendTerminalInterrupt() {
-            if (!termSocket || termSocket.readyState !== WebSocket.OPEN) return;
-            // 发送 Ctrl+C (ETX 0x03) 中断当前命令
-            termSocket.send('\x03');
-            appendTermOutput('^C\r\n');
+        async function sendTerminalInterrupt() {
+            if (!termRunning.value) return;
+            try {
+                await API.terminalInterrupt();
+            } catch (e) {}
         }
 
 
@@ -1137,6 +1205,7 @@ createApp({
         onBeforeUnmount(() => {
             timers.forEach(clearInterval);
             timers = [];
+            stopPoll();
             window.removeEventListener('resize', moveThumb);
         });
 

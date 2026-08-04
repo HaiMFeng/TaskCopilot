@@ -74,6 +74,8 @@ public class SystemController {
     @PostMapping("/check-path")
     public Map<String, Object> checkPath(@org.springframework.web.bind.annotation.RequestBody Map<String, Object> body) {
         String path = body == null ? null : String.valueOf(body.getOrDefault("path", "")).trim();
+        // 去除用户可能粘贴带入的包裹引号（与执行端清洗逻辑保持一致）
+        path = path.replaceAll("^[\"']+", "").replaceAll("[\"']+$", "").trim();
         Map<String, Object> result = new LinkedHashMap<>();
         if (path == null || path.isBlank()) {
             result.put("exists", false);

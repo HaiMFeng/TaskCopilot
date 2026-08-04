@@ -58,9 +58,17 @@ public class CommandExecutor {
                 process.waitFor(5, TimeUnit.SECONDS);
                 outThread.join(1000);
                 errThread.join(1000);
+                String detail = "任务执行超时（%d 秒），进程已被强制终止。"
+                        .formatted(timeout)
+                        + System.lineSeparator()
+                        + "命令：" + task.getCommand()
+                        + (task.getWorkingDir() != null && !task.getWorkingDir().isBlank()
+                            ? System.lineSeparator() + "工作目录：" + task.getWorkingDir() : "")
+                        + System.lineSeparator()
+                        + "可能原因：程序长时间未退出、等待用户输入、或路径/参数不正确。";
                 return new ExecutionResult(ExecutionStatus.TIMEOUT, -1,
                         truncate(out.text()),
-                        truncate(appendLine(err.text(), "任务执行超时（%d 秒），进程已被终止".formatted(timeout))),
+                        truncate(appendLine(err.text(), detail)),
                         startedAt, Instant.now());
             }
 

@@ -1020,6 +1020,10 @@ body {
         display: flex;
         align-items: center;
     }
+    /* 移动端：新建日程表按钮仅保留图标，去除「新建」文字 */
+    .schedule-rail-head .btn-create-schedule .btn-txt {
+        display: none;
+    }
     .schedule-list {
         display: flex;
         flex-direction: row;

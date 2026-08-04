@@ -74,7 +74,9 @@
             <div class="schedule-rail">
                 <div class="schedule-rail-head">
                     <span class="section-title view-title"><i class="fa-solid fa-calendar-days view-title-icon"></i>日程表</span>
-                    <button class="btn-primary btn-sm" @click="createSchedule">＋ 新建</button>
+                    <button class="btn-primary btn-sm btn-create-schedule" @click="createSchedule">
+                        <span class="btn-ico">＋</span><span class="btn-txt">新建</span>
+                    </button>
                 </div>
                 <div class="schedule-list">
                     <div v-if="scheduleList.length <= 1" class="empty-hint">暂无日程表，点击 ＋ 创建</div>
@@ -100,7 +102,9 @@
                     <aside class="task-list-pane" :class="{ collapsed: showMobileDetail }">
                         <div class="pane-head">
                             <span class="section-title">{{ currentScheduleName }}</span>
-                            <button class="btn-primary btn-sm" :disabled="!currentScheduleId" @click="openCreateTask">＋ 新建</button>
+                            <button class="btn-primary btn-sm" :disabled="!currentScheduleId" @click="openCreateTask">
+                                <span class="btn-ico">＋</span><span class="btn-txt">新建任务</span>
+                            </button>
                         </div>
                         <ul class="task-list">
                             <li v-for="(t, idx) in tasks"
@@ -551,7 +555,7 @@
 <script src="/vendor/index.full.min.js"></script>
 <script src="/vendor/dayjs.min.js"></script>
 <script src="/js/api.js"></script>
-<script>window.__APP_HTML_VERSION__ = '20260805.11';</script>
-<script src="/js/app.js?v=20260805.11"></script>
+<script>window.__APP_HTML_VERSION__ = '20260805.12';</script>
+<script src="/js/app.js?v=20260805.12"></script>
 </body>
 </html>

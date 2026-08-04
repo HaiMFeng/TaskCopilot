@@ -64,21 +64,22 @@
                         <span class="section-title">{{ currentScheduleName }}</span>
                         <button class="btn-primary" :disabled="!currentScheduleId" @click="openCreateTask">＋ 新建任务</button>
                     </div>
-                    <p class="pane-hint">列表随运行时间自动排序，拖拽可调整顺序。</p>
+                    <p class="pane-hint">列表按执行时间自动排序，同一时间的任务可拖拽调整顺序。</p>
 
                     <ul class="task-list">
                         <li v-for="(t, idx) in tasks"
                             :key="t.id"
                             class="task-item"
                             :class="{ selected: t.id === selectedTaskId, dragging: dragIndex === idx }"
-                            draggable="true"
+                            :draggable="canDrag(idx)"
                             @click="selectTask(t.id)"
                             @dragstart="onDragStart(idx)"
                             @dragover.prevent="onDragOver(idx)"
                             @dragend="onDragEnd">
-                            <span class="drag-handle">⋮⋮</span>
+                            <span class="drag-handle" :class="{ disabled: !canDrag(idx) }">⋮⋮</span>
                             <span class="task-status" :class="statusClass(t)"></span>
                             <span class="task-name">{{ t.name }}</span>
+                            <span class="task-time">{{ taskTime(t) }}</span>
                             <span class="task-type-badge">{{ t.typeName }}</span>
                             <span class="task-toggle" @click.stop>
                                 <el-switch :model-value="t.enabled"
@@ -203,8 +204,8 @@
 <script src="/vendor/vue.global.prod.js"></script>
 <script src="/vendor/index.full.min.js"></script>
 <script src="/js/api.js"></script>
-<script>window.__APP_HTML_VERSION__ = '20260804.7';</script>
-<script src="/js/app.js?v=20260804.7"></script>
+<script>window.__APP_HTML_VERSION__ = '20260804.9';</script>
+<script src="/js/app.js?v=20260804.9"></script>
     <!-- 版本标识：便于区分 index.html 与 js 的加载版本 -->
     <div class="version-badge">
         <span>HTML <b id="htmlVer">--</b></span>

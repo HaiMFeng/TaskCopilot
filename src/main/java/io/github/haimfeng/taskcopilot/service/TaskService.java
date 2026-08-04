@@ -69,13 +69,28 @@ public class TaskService {
     }
 
     /**
-     * 查询指定日程表下的任务（按 sortOrder 升序）。
+     * 查询指定日程表下的任务。
+     * 先按触发时间升序，时间相同的再按 sortOrder（用户手动拖拽的顺序）排列。
      */
     @Transactional(readOnly = true)
     public List<TaskResponse> listBySchedule(Long scheduleId) {
         return taskRepository.findByScheduleIdOrderBySortOrderAscIdAsc(scheduleId).stream()
+                .sorted(java.util.Comparator
+                        .comparingInt((Task t) -> triggerMinuteOf(t))
+                        .thenComparingInt(Task::getSortOrder)
+                        .thenComparing(Task::getId))
                 .map(this::toResponse)
                 .toList();
+    }
+
+    /**
+     * 任务触发时间对应的当日分钟数，用于列表排序。
+     * 时间统一存放在 config.time（HH:mm），解析失败时回退到 DailyTiming 的缺省值。
+     */
+    private int triggerMinuteOf(Task task) {
+        int[] hm = io.github.haimfeng.taskcopilot.tasktype.DailyTiming
+                .parseTime(configCodec.read(task.getConfigJson()));
+        return hm[0] * 60 + hm[1];
     }
 
     @Transactional
@@ -142,11 +157,30 @@ public class TaskService {
         return toResponse(saved);
     }
 
+    /**
+     * 保存任务顺序。列表以触发时间为主序，因此这里只允许调整「同一触发时间」组内的相对顺序：
+     * 传入的顺序若改变了各时间组之间的先后，则视为非法请求。
+     */
     @Transactional
     public void reorder(List<Long> orderedIds) {
         List<Task> tasks = taskRepository.findAllById(orderedIds);
         Map<Long, Task> byId = new java.util.HashMap<>();
         tasks.forEach(t -> byId.put(t.getId(), t));
+
+        // 校验：按传入顺序取出触发时间，必须是非递减的，否则说明跨时间拖拽
+        int previousMinute = Integer.MIN_VALUE;
+        for (Long id : orderedIds) {
+            Task task = byId.get(id);
+            if (task == null) {
+                continue;
+            }
+            int minute = triggerMinuteOf(task);
+            if (minute < previousMinute) {
+                throw new IllegalArgumentException("只能调整同一执行时间任务之间的顺序");
+            }
+            previousMinute = minute;
+        }
+
         int order = 0;
         List<Task> updated = new ArrayList<>();
         for (Long id : orderedIds) {

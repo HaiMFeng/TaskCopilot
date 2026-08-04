@@ -205,10 +205,24 @@ body {
 .task-item.selected { border-color: var(--accent); background: #1a2233; }
 .task-item.dragging { opacity: .4; }
 .drag-handle { color: var(--text-dim); cursor: grab; font-size: 14px; user-select: none; }
+/* 无同一时间的任务可换位时，手柄置灰且不显示可拖拽指针 */
+.drag-handle.disabled { opacity: .25; cursor: default; }
 .task-status { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; background: #555; }
 .task-status.ok { background: var(--accent-2); }
 .task-status.fail { background: var(--danger); }
 .task-status.idle { background: #555; }
+/* 执行时间：样式与类型标签一致，等宽数字保证对齐 */
+.task-time {
+    font-size: 11px;
+    color: var(--text-dim);
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    padding: 2px 8px;
+    border-radius: 999px;
+    flex-shrink: 0;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: .3px;
+}
 .task-name { flex: 1; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .task-type-badge {
     font-size: 11px;
@@ -498,6 +512,29 @@ body {
     height: auto;
     margin: 0;
     border-radius: 8px;
+}
+
+/* 进程选择弹窗列表 */
+.process-list {
+    max-height: 320px;
+    overflow-y: auto;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+}
+.process-item {
+    padding: 8px 14px;
+    cursor: pointer;
+    font-size: 13px;
+    border-bottom: 1px solid var(--border);
+    transition: background .15s;
+}
+.process-item:last-child { border-bottom: none; }
+.process-item:hover { background: var(--bg-input); }
+.process-empty {
+    padding: 24px;
+    text-align: center;
+    color: var(--text-dim);
+    font-size: 13px;
 }
 
 /* 校验按钮：从输入框右侧挤出/收回 */

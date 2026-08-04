@@ -63,6 +63,45 @@ const ConfigFields = {
         const checkResult = reactive({});      // { [fieldName]: {exists, isFile, extension, ok} }
         const verified = reactive({});         // { [fieldName]: boolean } 是否通过校验
 
+        // ----- 进程选择器（process 类型） -----
+        const processPickerVisible = ref(false);
+        const processFilter = ref('');
+        const allProcesses = ref([]);          // 从后端拉取的进程列表
+        let pendingProcessField = null;        // 当前正在为其选择进程的字段
+        const filteredProcesses = computed(() => {
+            const kw = processFilter.value.toLowerCase().trim();
+            if (!kw) return allProcesses.value;
+            return allProcesses.value.filter((p) => p.name.toLowerCase().includes(kw));
+        });
+        /** 当用户选择了模糊匹配时，给出简短说明 */
+        const wildcardTip = computed(() => {
+            const matchField = (props.schema || []).find((f) => f.name === 'matchMode');
+            if (!matchField) return '';
+            return val(matchField) === 'wildcard'
+                ? '模糊匹配会杀死所有进程名包含该关键词的进程（如输入 chrome 会匹配 chrome.exe、chrome_helper.exe 等），请谨慎使用。'
+                : '';
+        });
+
+        async function openProcessPicker(field) {
+            pendingProcessField = field;
+            processFilter.value = '';
+            // 每次打开都重新拉取，确保进程列表反映当前实际运行状态
+            try {
+                allProcesses.value = await API.fetchProcesses();
+            } catch (e) {
+                ElMessage.error('获取进程列表失败：' + e.message);
+                allProcesses.value = [];
+            }
+            processPickerVisible.value = true;
+        }
+        function pickProcess(name) {
+            if (pendingProcessField) {
+                set(pendingProcessField, name);
+            }
+            processPickerVisible.value = false;
+            pendingProcessField = null;
+        }
+
         /** 清洗路径：去除首尾空白与包裹的引号 */
         function cleanPath(raw) {
             if (!raw) return '';
@@ -151,7 +190,9 @@ const ConfigFields = {
         });
 
         return {val, set, checking, checkResult, verified,
-                verifyField, onPathInput, cleanPath, fileBaseName, autoVerifyAll};
+                verifyField, onPathInput, cleanPath, fileBaseName, autoVerifyAll,
+                processPickerVisible, processFilter, filteredProcesses, wildcardTip,
+                openProcessPicker, pickProcess};
     },
     template: `
         <div class="config-fields">
@@ -197,7 +238,7 @@ const ConfigFields = {
                            :model-value="!!val(f)"
                            @update:model-value="v => set(f, v)"/>
 
-                <el-input v-else-if="f.type !== 'appFile'"
+                <el-input v-else-if="f.type !== 'appFile' && f.type !== 'process'"
                           :model-value="val(f)"
                           :placeholder="f.help || ''"
                           @update:model-value="v => set(f, v)"/>
@@ -226,7 +267,36 @@ const ConfigFields = {
                     </transition>
                 </template>
 
-                <div v-if="f.help && f.type !== 'text' && f.type !== 'textarea' && f.type !== 'appFile'" class="field-help">{{ f.help }}</div>
+                <template v-else-if="f.type === 'process'">
+                    <div class="path-row">
+                        <el-input :model-value="val(f)"
+                                  :placeholder="f.help || '输入进程名，如 notepad.exe'"
+                                  @update:model-value="v => set(f, v)"/>
+                        <el-button class="path-verify-btn"
+                                   @click="openProcessPicker(f)">选择进程</el-button>
+                    </div>
+                    <transition name="fade">
+                        <div class="dz-check" v-if="val(f)">
+                            <el-tag type="info" size="small">进程名：{{ val(f) }}</el-tag>
+                        </div>
+                    </transition>
+                    <div v-if="wildcardTip" class="field-help" style="margin-top:4px">{{ wildcardTip }}</div>
+                </template>
+
+                <!-- 进程选择弹窗 -->
+                <el-dialog v-model="processPickerVisible" title="选择运行中的进程" width="460px" destroy-on-close>
+                    <el-input v-model="processFilter" placeholder="搜索进程名..." clearable style="margin-bottom:12px"/>
+                    <div class="process-list">
+                        <div v-for="p in filteredProcesses" :key="p.name"
+                             class="process-item"
+                             @click="pickProcess(p.name)">
+                            {{ p.name }}
+                        </div>
+                        <div v-if="filteredProcesses.length === 0" class="process-empty">无匹配进程</div>
+                    </div>
+                </el-dialog>
+
+                <div v-if="f.help && f.type !== 'text' && f.type !== 'textarea' && f.type !== 'appFile' && f.type !== 'process'" class="field-help">{{ f.help }}</div>
             </el-form-item>
         </div>
     `,
@@ -669,11 +739,42 @@ createApp({
             }
         }
 
+        /* ---------------- 触发时间 ---------------- */
+        /** 取任务的触发时间文本（HH:mm），配置缺失时回退到默认 08:30 */
+        function taskTime(t) {
+            const raw = t && t.config ? t.config.time : null;
+            if (typeof raw === 'string' && raw.trim()) {
+                const parts = raw.trim().split(':');
+                const h = parseInt(parts[0], 10);
+                const m = parts.length > 1 ? parseInt(parts[1], 10) : 0;
+                if (!isNaN(h) && !isNaN(m)) {
+                    return String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
+                }
+            }
+            return '08:30';
+        }
+        /** 触发时间对应的当日分钟数，用于比较与排序 */
+        function taskMinute(t) {
+            const parts = taskTime(t).split(':');
+            return parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10);
+        }
+
         /* ---------------- 拖拽排序 ---------------- */
+        // 列表以触发时间为主序，拖拽仅用于调整「同一时间」任务的先后
         const dragIndex = ref(-1);
+        /** 仅当存在同一执行时间的其它任务时，该项才可拖拽 */
+        function canDrag(idx) {
+            const list = tasks.value;
+            if (!list || list.length < 2) return false;
+            const m = taskMinute(list[idx]);
+            return (idx > 0 && taskMinute(list[idx - 1]) === m)
+                || (idx < list.length - 1 && taskMinute(list[idx + 1]) === m);
+        }
         function onDragStart(idx) { dragIndex.value = idx; }
         function onDragOver(idx) {
             if (dragIndex.value === -1 || dragIndex.value === idx) return;
+            // 跨执行时间不允许调整顺序，直接忽略此次移动
+            if (taskMinute(tasks.value[dragIndex.value]) !== taskMinute(tasks.value[idx])) return;
             const arr = tasks.value.slice();
             const [moved] = arr.splice(dragIndex.value, 1);
             arr.splice(idx, 0, moved);
@@ -764,7 +865,8 @@ createApp({
             selectSchedule, createSchedule, activateSchedule, deleteSchedule,
             selectTask, toggleTask, saveDetail, runTask, viewHistory, deleteTask,
             openCreateTask, submitCreate,
-            dragIndex, onDragStart, onDragOver, onDragEnd,
+            dragIndex, onDragStart, onDragOver, onDragEnd, canDrag,
+            taskTime, taskMinute,
             fmtTime,
         };
     },

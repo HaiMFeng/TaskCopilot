@@ -307,11 +307,11 @@ createApp({
     setup() {
         /* ---------------- 基础状态 ---------------- */
         const modes = [
-            {key: 'dashboard', label: '仪表盘'},
-            {key: 'schedule', label: '日程表'},
-            {key: 'files', label: '文件管理器'},
+            {key: 'dashboard', label: '仪表盘', shortLabel: '仪表'},
+            {key: 'schedule', label: '日程表', shortLabel: '日程'},
+            {key: 'files', label: '文件管理器', shortLabel: '文件'},
         ];
-        const mode = ref('schedule');
+        const mode = ref('dashboard');
         const modeRefs = {};
         const thumbStyle = reactive({width: '0px', transform: 'translateX(0px)'});
 
@@ -331,6 +331,20 @@ createApp({
         const resultOutput = ref(null);
 
         const schedulerInfo = ref(null);
+
+        /* ---------------- 移动端适配 ---------------- */
+        const isMobile = ref(window.innerWidth <= 768);
+        const showMobileDetail = ref(false);
+        window.addEventListener('resize', () => {
+            isMobile.value = window.innerWidth <= 768;
+        });
+        function selectTaskMobile(id) {
+            selectTask(id);
+            showMobileDetail.value = true;
+        }
+        function closeMobileDetail() {
+            showMobileDetail.value = false;
+        }
 
         /* ---------------- 仪表盘 ---------------- */
         const dashInfo = ref({});
@@ -963,6 +977,7 @@ createApp({
             modes, mode, thumbStyle, setModeRef, switchMode,
             schedules, currentScheduleId, currentScheduleName,
             tasks, selectedTaskId, selectedTask, taskTypes,
+            isMobile, showMobileDetail, selectTaskMobile, closeMobileDetail,
             form, createForm, detailSchema, createSchema,
             appFileVerified, createFileVerified,
             onDetailFieldUpdate, onCreateFieldUpdate, onTypeChange, onCreateTypeChange,

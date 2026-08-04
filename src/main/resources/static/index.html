@@ -24,7 +24,10 @@
                     class="mode-option"
                     :class="{ active: mode === m.key }"
                     role="tab"
-                    @click="switchMode(m.key)">{{ m.label }}</button>
+                    @click="switchMode(m.key)">
+                <span class="mode-label-full">{{ m.label }}</span>
+                <span class="mode-label-short">{{ m.shortLabel }}</span>
+            </button>
         </div>
 
         <div class="topbar-right">
@@ -59,6 +62,86 @@
             </div>
 
             <div class="split">
+                <!-- 移动端：任务列表始终显示，详情以底部面板形式弹出 -->
+                <template v-if="isMobile">
+                    <aside class="task-list-pane" :class="{ collapsed: showMobileDetail }">
+                        <div class="pane-head">
+                            <span class="section-title">{{ currentScheduleName }}</span>
+                            <button class="btn-primary btn-sm" :disabled="!currentScheduleId" @click="openCreateTask">＋ 新建</button>
+                        </div>
+                        <ul class="task-list">
+                            <li v-for="(t, idx) in tasks"
+                                :key="t.id"
+                                class="task-item"
+                                :class="{ selected: t.id === selectedTaskId }"
+                                @click="selectTaskMobile(t.id)">
+                                <span class="task-status" :class="statusClass(t)"></span>
+                                <span class="task-name">{{ t.name }}</span>
+                                <span class="task-time">{{ taskTime(t) }}</span>
+                                <span class="task-type-badge">{{ t.typeName }}</span>
+                                <span class="task-toggle" @click.stop>
+                                    <el-switch :model-value="t.enabled" size="small"
+                                               @update:model-value="val => toggleTask(t, val)"/>
+                                </span>
+                            </li>
+                        </ul>
+                        <div v-if="tasks.length === 0" class="empty-hint">该日程表下暂无任务</div>
+                    </aside>
+
+                    <transition name="slide-up">
+                        <section v-if="showMobileDetail && selectedTask" class="task-detail-pane mobile-detail">
+                            <div class="mobile-detail-bar">
+                                <button class="btn-ghost" @click="closeMobileDetail">← 返回列表</button>
+                            </div>
+                            <!-- 详情表单（复用桌面端逻辑） -->
+                            <el-form class="detail-form" label-position="top" @submit.prevent="saveDetail">
+                                <div class="detail-head">
+                                    <h2>{{ selectedTask.name }}</h2>
+                                    <div class="detail-actions">
+                                        <button type="button" class="btn-ghost" :disabled="running" @click="runTask">
+                                            {{ running ? '执行中…' : '▶ 执行' }}
+                                        </button>
+                                        <button type="submit" class="btn-primary" :disabled="saving">
+                                            {{ saving ? '保存中…' : '保存' }}
+                                        </button>
+                                    </div>
+                                </div>
+                                <el-form-item label="名称">
+                                    <el-input v-model="form.name" maxlength="100" show-word-limit placeholder="任务名称"/>
+                                </el-form-item>
+                                <el-form-item label="类型">
+                                    <el-select v-model="form.typeCode" style="width:100%" @change="onTypeChange">
+                                        <el-option v-for="tt in taskTypes" :key="tt.typeCode" :label="tt.typeDisplayName" :value="tt.typeCode"/>
+                                    </el-select>
+                                </el-form-item>
+                                <config-fields :schema="detailSchema" :model="form.config" :verified-map="appFileVerified" @update="onDetailFieldUpdate"></config-fields>
+                                <el-form-item label="备注(Hint)">
+                                    <el-input v-model="form.remark" type="textarea" :rows="2" maxlength="255" show-word-limit placeholder="可选，记录任务用途或注意事项"/>
+                                </el-form-item>
+                                <div class="detail-meta">
+                                    <span>下次执行：{{ fmtTime(selectedTask.nextExecutionAt) }}</span>
+                                    <span>最近执行：{{ fmtTime(selectedTask.lastExecutedAt) }}{{ lastStatusSuffix }}</span>
+                                </div>
+                                <div v-if="showResult" class="result-box">
+                                    <div class="result-head">
+                                        <span class="section-title">上次运行结果</span>
+                                        <template v-if="hasRun">
+                                            <span class="result-badge" :class="resultBadgeClass">{{ resultBadgeText }}</span>
+                                            <span class="result-meta">{{ fmtTime(selectedTask.lastExecutedAt) }}</span>
+                                        </template>
+                                        <span v-else class="result-badge idle">尚未运行</span>
+                                    </div>
+                                    <pre class="result-output" :class="{ 'has-error': hasRun && resultHasError, 'is-empty': !hasRun }">{{ hasRun ? resultText : '该任务尚未执行过，创建并启用后将按调度时间运行。' }}</pre>
+                                    <button type="button" class="btn-ghost btn-sm" @click="viewHistory">查看完整历史</button>
+                                </div>
+                                <button type="button" class="btn-danger-ghost" @click="deleteTask">删除任务</button>
+                            </el-form>
+                        </section>
+                    </transition>
+                </template>
+
+                <!-- 桌面端：左右分栏 -->
+                <template v-else>
                 <aside class="task-list-pane">
                     <div class="pane-head">
                         <span class="section-title">{{ currentScheduleName }}</span>
@@ -153,6 +236,7 @@
                     </el-form>
                 </section>
             </div>
+                </template>
         </section>
 
         <!-- ===== 仪表盘 ===== -->

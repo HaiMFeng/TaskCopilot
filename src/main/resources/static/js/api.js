@@ -2,13 +2,20 @@
 const API = (() => {
     const base = '/api';
 
-    async function request(method, path, body) {
+    async function request(method, path, body, responseType) {
         const opts = {
             method,
             headers: {'Content-Type': 'application/json'},
         };
         if (body !== undefined) opts.body = JSON.stringify(body);
         const res = await fetch(base + path, opts);
+        if (responseType === 'blob') {
+            if (!res.ok) {
+                const text = await res.text();
+                throw new Error(text || `请求失败 (${res.status})`);
+            }
+            return await res.blob();
+        }
         if (res.status === 204) return null;
         const text = await res.text();
         const data = text ? JSON.parse(text) : null;
@@ -62,5 +69,8 @@ const API = (() => {
         terminalInterrupt: () => request('POST', '/terminal/interrupt'),
         terminalStart: (shell) => request('POST', '/terminal/start', {shell}),
         terminalStop: () => request('POST', '/terminal/stop'),
+
+        // 屏幕查看（截图轮询，返回 JPEG blob）
+        screenShot: (quality) => request('GET', `/screen?quality=${quality}`, undefined, 'blob'),
     };
 })();

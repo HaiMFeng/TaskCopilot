@@ -456,6 +456,31 @@
             </div>
         </section>
 
+        <!-- ===== 屏幕查看（截图轮询） ===== -->
+        <section v-show="mode === 'monitor'" class="mode-view screen-view">
+            <div class="screen-toolbar">
+                <div class="screen-toolbar-left">
+                    <i class="fa-solid fa-desktop"></i>
+                    <span>屏幕查看</span>
+                    <span v-if="screenSize" class="screen-meta">{{ screenSize }}</span>
+                </div>
+                <div class="screen-toolbar-right">
+                    <label class="screen-quality-label">清晰度</label>
+                    <el-select v-model="screenQuality" size="small" style="width:110px">
+                        <el-option :value="0.3" label="流畅"></el-option>
+                        <el-option :value="0.5" label="标准"></el-option>
+                        <el-option :value="0.7" label="清晰"></el-option>
+                        <el-option :value="0.9" label="原画"></el-option>
+                    </el-select>
+                </div>
+            </div>
+            <div class="screen-stage">
+                <img v-if="screenUrl" :src="screenUrl" class="screen-img" alt="主机屏幕" />
+                <div v-else-if="screenError" class="screen-error">{{ screenError }}</div>
+                <div v-else class="screen-loading"><i class="fa-solid fa-spinner fa-spin"></i> 正在获取屏幕…</div>
+            </div>
+        </section>
+
         <!-- ===== 文件管理器占位 ===== -->
         <section v-show="mode === 'files'" class="mode-view">
             <div class="placeholder-card">
@@ -511,7 +536,7 @@
 <script src="/vendor/index.full.min.js"></script>
 <script src="/vendor/dayjs.min.js"></script>
 <script src="/js/api.js"></script>
-<script>window.__APP_HTML_VERSION__ = '20260805.02';</script>
-<script src="/js/app.js?v=20260805.02"></script>
+<script>window.__APP_HTML_VERSION__ = '20260805.03';</script>
+<script src="/js/app.js?v=20260805.03"></script>
 </body>
 </html>

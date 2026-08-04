@@ -1,0 +1,166 @@
+package io.github.haimfeng.taskcopilot.service;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+
+import jakarta.annotation.PreDestroy;
+import java.awt.AWTException;
+import java.awt.HeadlessException;
+import java.awt.GraphicsDevice;
+import java.awt.GraphicsEnvironment;
+import java.awt.Rectangle;
+import java.awt.Robot;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
+
+import javax.imageio.IIOImage;
+import javax.imageio.ImageIO;
+import javax.imageio.ImageWriteParam;
+import javax.imageio.stream.ImageOutputStream;
+
+/**
+ * 主机屏幕截图服务（仅用于「屏幕查看」页，非系统监控指标）。
+ *
+ * 设计要点：
+ * - 使用 JDK 标准库 java.awt.Robot 截取主屏，零额外依赖。
+ * - 后台 daemon 线程按固定间隔（1s）截原图并缓存，请求时按 quality 动态编码 JPEG 返回，
+ *   避免「切换清晰度」触发重新截图，对「小主机」友好。
+ * - 按需启停：前端进入屏幕页发起首次请求时自动 start；持续无请求超过空闲阈值后自动 stop，
+ *   不占用后台资源。
+ * - 无桌面环境（Headless）降级：所有方法返回可用标记，不抛异常崩溃。
+ */
+@Service
+public class ScreenCaptureService {
+
+    private static final Logger log = LoggerFactory.getLogger(ScreenCaptureService.class);
+
+    /** 截图间隔（毫秒）。 */
+    private static final long CAPTURE_INTERVAL_MS = 1000;
+    /** 无请求空闲超过该时长（毫秒）则自动停止截图线程。 */
+    private static final long IDLE_STOP_MS = 5000;
+
+    private final AtomicBoolean available = new AtomicBoolean(false);
+    private final AtomicBoolean running = new AtomicBoolean(false);
+    private final AtomicReference<BufferedImage> latest = new AtomicReference<>();
+    private final AtomicLong lastCaptureMs = new AtomicLong(0);
+    private final AtomicLong lastRequestMs = new AtomicLong(0);
+
+    private Robot robot;
+    private Rectangle screenRect;
+    private Thread captureThread;
+    private final Object lock = new Object();
+
+    public ScreenCaptureService() {
+        try {
+            GraphicsEnvironment ge = GraphicsEnvironment.getLocalGraphicsEnvironment();
+            GraphicsDevice gd = ge.getDefaultScreenDevice();
+            screenRect = gd.getDefaultConfiguration().getBounds();
+            robot = new Robot(gd);
+            available.set(true);
+            log.info("屏幕截图服务可用，主屏尺寸 {}x{}", screenRect.width, screenRect.height);
+        } catch (AWTException | HeadlessException e) {
+            available.set(false);
+            log.warn("屏幕截图服务不可用（无桌面环境）：{}", e.getMessage());
+        }
+    }
+
+    /** 是否处于可用（有桌面会话）状态。 */
+    public boolean isAvailable() {
+        return available.get();
+    }
+
+    /** 当前主屏尺寸。 */
+    public Rectangle getScreenRect() {
+        return screenRect;
+    }
+
+    /**
+     * 确保截图线程运行（幂等）。前端发起首次请求时调用。
+     * 同时刷新「最后请求时间」，阻止空闲自动停止。
+     */
+    public void ensureRunning() {
+        lastRequestMs.set(System.currentTimeMillis());
+        if (!available.get() || running.get()) return;
+        synchronized (lock) {
+            if (running.get()) return;
+            running.set(true);
+            captureThread = new Thread(this::captureLoop, "screen-capture");
+            captureThread.setDaemon(true);
+            captureThread.start();
+        }
+    }
+
+    private void captureLoop() {
+        while (running.get()) {
+            long now = System.currentTimeMillis();
+            // 空闲超时自动停止
+            if (now - lastRequestMs.get() > IDLE_STOP_MS) {
+                synchronized (lock) {
+                    running.set(false);
+                }
+                log.info("屏幕截图空闲超时，已自动停止");
+                break;
+            }
+            try {
+                BufferedImage img = robot.createScreenCapture(screenRect);
+                latest.set(img);
+                lastCaptureMs.set(now);
+            } catch (Exception e) {
+                if (running.get()) log.warn("屏幕截图失败", e);
+            }
+            try {
+                Thread.sleep(CAPTURE_INTERVAL_MS);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                break;
+            }
+        }
+    }
+
+    /**
+     * 按给定质量（0.1~1.0）返回最新截图的 JPEG 字节。无可用帧时返回 null。
+     */
+    public byte[] getJpeg(double quality) {
+        if (!available.get()) return null;
+        BufferedImage img = latest.get();
+        if (img == null) return null;
+        float q = (float) Math.max(0.1, Math.min(1.0, quality));
+        try (ByteArrayOutputStream baos = new ByteArrayOutputStream();
+             ImageOutputStream ios = ImageIO.createImageOutputStream(baos)) {
+            var writer = ImageIO.getImageWritersByFormatName("jpeg").next();
+            var params = writer.getDefaultWriteParam();
+            if (params.canWriteCompressed()) {
+                params.setCompressionMode(ImageWriteParam.MODE_EXPLICIT);
+                params.setCompressionQuality(q);
+            }
+            writer.setOutput(ios);
+            writer.write(null, new IIOImage(img, null, null), params);
+            writer.dispose();
+            return baos.toByteArray();
+        } catch (IOException e) {
+            log.warn("屏幕截图编码失败", e);
+            return null;
+        }
+    }
+
+    /** 最近一次截图时间戳（毫秒）。 */
+    public long getLastCaptureMs() {
+        return lastCaptureMs.get();
+    }
+
+    @PreDestroy
+    public void destroy() {
+        synchronized (lock) {
+            running.set(false);
+        }
+        if (captureThread != null) {
+            captureThread.interrupt();
+        }
+        latest.set(null);
+    }
+}

@@ -5,7 +5,7 @@ const {createApp, ref, reactive, computed, onMounted, onBeforeUnmount, nextTick}
 const {ElMessage, ElMessageBox} = ElementPlus;
 
 // 前端 JS 版本号（修改后请同步递增，便于辨识加载版本）
-const APP_JS_VERSION = '20260805.02';
+const APP_JS_VERSION = '20260805.03';
 
 /** 任务顶级字段（不放进 config，提交时提升到 payload 顶层） */
 const TOP_LEVEL_FIELDS = new Set(['command', 'workingDir', 'timeoutSeconds']);
@@ -310,6 +310,7 @@ createApp({
             {key: 'dashboard', label: '仪表盘', shortLabel: '仪表'},
             {key: 'schedule', label: '日程表', shortLabel: '日程'},
             {key: 'terminal', label: '终端', shortLabel: '终端'},
+            {key: 'monitor', label: '屏幕', shortLabel: '屏幕'},
             {key: 'files', label: '文件管理器', shortLabel: '文件'},
         ];
         const mode = ref('dashboard');
@@ -477,10 +478,15 @@ createApp({
             if (mode.value === key) return;
             mode.value = key;
             nextTick(moveThumb);
+            // 离开屏幕页则停止截图轮询（按需启停，节省小主机资源）
+            if (mode.value !== 'monitor') stopScreen();
             if (key === 'terminal') {
                 openTerminalView();
             } else {
                 stopPoll();
+            }
+            if (key === 'monitor') {
+                startScreen();
             }
             if (key === 'schedule' && currentScheduleId.value) {
                 loadTasks();
@@ -1053,6 +1059,36 @@ createApp({
             if (el) el.textContent = '';
         }
 
+        /* ---------------- 屏幕查看（截图轮询） ---------------- */
+        const screenUrl = ref('');                 // 当前帧 <img> 地址
+        const screenQuality = ref(0.5);            // 清晰度：0.3/0.5/0.7/0.9
+        const screenSize = ref('');                // 主屏尺寸（后端返回）
+        const screenError = ref('');               // 不可用提示
+        let screenTimer = null;
+
+        async function refreshScreen() {
+            try {
+                const blob = await API.screenShot(screenQuality.value);
+                screenUrl.value = URL.createObjectURL(blob) + '#' + Date.now();
+                screenError.value = '';
+            } catch (e) {
+                // 503 等：后端无桌面环境
+                screenError.value = '无法获取屏幕画面：' + (e.message || e);
+            }
+        }
+
+        function startScreen() {
+            if (screenTimer) return;
+            refreshScreen();
+            screenTimer = setInterval(refreshScreen, 1000);
+        }
+
+        function stopScreen() {
+            if (screenTimer) { clearInterval(screenTimer); screenTimer = null; }
+            if (screenUrl.value) { URL.revokeObjectURL(screenUrl.value.split('#')[0]); }
+            screenUrl.value = '';
+        }
+
         let termSeq = 0;
         let termTimer = null;
         let termPolling = false; // 是否处于常驻轮询（在终端页时为真）
@@ -1236,6 +1272,8 @@ createApp({
             startTerminal, stopTerminal, sendTerminalCommand, sendTerminalInterrupt,
             taskTime, taskMinute,
             fmtTime,
+            // 屏幕查看
+            screenUrl, screenQuality, screenSize, screenError,
         };
     },
 })

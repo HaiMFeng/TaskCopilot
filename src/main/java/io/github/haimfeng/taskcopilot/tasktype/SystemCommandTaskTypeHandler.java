@@ -85,7 +85,8 @@ public class SystemCommandTaskTypeHandler implements TaskTypeHandler {
         Task launch = new Task();
         launch.setCommand(command);
         launch.setWorkingDir(task.getWorkingDir());
-        launch.setTimeoutSeconds(Math.max(task.getTimeoutSeconds(), delay + 30));
+        int baseTimeout = task.getTimeoutSeconds() != null ? task.getTimeoutSeconds() : 0;
+        launch.setTimeoutSeconds(Math.max(baseTimeout, delay + 30));
         CommandExecutor.ExecutionResult result = executor.execute(launch);
 
         // 补充友好提示

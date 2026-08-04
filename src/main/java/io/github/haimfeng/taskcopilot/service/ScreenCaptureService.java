@@ -7,6 +7,7 @@ import org.springframework.stereotype.Service;
 import jakarta.annotation.PreDestroy;
 import java.awt.AWTException;
 import java.awt.HeadlessException;
+import java.awt.GraphicsConfiguration;
 import java.awt.GraphicsDevice;
 import java.awt.GraphicsEnvironment;
 import java.awt.Rectangle;
@@ -51,7 +52,8 @@ public class ScreenCaptureService {
     private final AtomicLong lastRequestMs = new AtomicLong(0);
 
     private Robot robot;
-    private Rectangle screenRect;
+    private Rectangle screenRect;        // 逻辑尺寸（用于界面展示参考）
+    private Rectangle captureRect;       // 物理像素捕获区域（含 DPI 缩放还原）
     private Thread captureThread;
     private final Object lock = new Object();
 
@@ -65,10 +67,20 @@ public class ScreenCaptureService {
         try {
             GraphicsEnvironment ge = GraphicsEnvironment.getLocalGraphicsEnvironment();
             GraphicsDevice gd = ge.getDefaultScreenDevice();
-            screenRect = gd.getDefaultConfiguration().getBounds();
+            GraphicsConfiguration gc = gd.getDefaultConfiguration();
+            screenRect = gc.getBounds();
+            // 还原 DPI 缩放，得到物理像素捕获区域（如 2560x1600 @150% 缩放）
+            var tx = gc.getDefaultTransform();
+            double sx = tx.getScaleX() <= 0 ? 1.0 : tx.getScaleX();
+            double sy = tx.getScaleY() <= 0 ? 1.0 : tx.getScaleY();
+            captureRect = new Rectangle(0, 0,
+                    (int) Math.round(screenRect.width * sx),
+                    (int) Math.round(screenRect.height * sy));
             robot = new Robot(gd);
             available.set(true);
-            log.info("屏幕截图服务可用，主屏尺寸 {}x{}", screenRect.width, screenRect.height);
+            log.info("屏幕截图服务可用，逻辑尺寸 {}x{}，物理尺寸 {}x{}（缩放 {}x{}）",
+                    screenRect.width, screenRect.height,
+                    captureRect.width, captureRect.height, sx, sy);
         } catch (AWTException | HeadlessException e) {
             available.set(false);
             log.warn("屏幕截图服务不可用（无桌面环境）：{}。请确认以带桌面会话方式运行（java -jar 或 IDEA 前台运行），且未设置 -Djava.awt.headless=true", e.getMessage());
@@ -80,9 +92,9 @@ public class ScreenCaptureService {
         return available.get();
     }
 
-    /** 当前主屏尺寸。 */
+    /** 当前主屏物理尺寸。 */
     public Rectangle getScreenRect() {
-        return screenRect;
+        return captureRect;
     }
 
     /**
@@ -113,7 +125,7 @@ public class ScreenCaptureService {
                 break;
             }
             try {
-                BufferedImage img = robot.createScreenCapture(screenRect);
+                BufferedImage img = robot.createScreenCapture(captureRect);
                 latest.set(img);
                 lastCaptureMs.set(now);
             } catch (Exception e) {

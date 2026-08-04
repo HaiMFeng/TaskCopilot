@@ -71,6 +71,22 @@ body {
     --el-fill-color-blank: var(--bg-input);
     --el-border-color: var(--border);
 }
+/* 消除点击/聚焦产生的蓝色方块高亮 */
+.mode-select-mobile .el-select__wrapper {
+    -webkit-tap-highlight-color: transparent;
+    box-shadow: 0 0 0 1px var(--border) inset;
+}
+.mode-select-mobile .el-select__wrapper.is-focus,
+.mode-select-mobile .el-select__wrapper:focus,
+.mode-select-mobile .el-select__wrapper:active {
+    box-shadow: 0 0 0 1px var(--border) inset !important;
+    background-color: var(--bg-input);
+    outline: none;
+}
+.mode-select-mobile .el-select__selected-item,
+.mode-select-mobile .el-select__placeholder {
+    -webkit-tap-highlight-color: transparent;
+}
 
 /* 模式切换滑块 */
 .mode-switch {

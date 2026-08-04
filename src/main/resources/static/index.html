@@ -64,7 +64,14 @@
         </div>
 
         <div class="topbar-right">
-            <span class="state-pill" :class="schedulerPillClass" title="调度状态">{{ schedulerText }}</span>
+            <button class="state-pill"
+                    :class="schedulerPillClass"
+                    type="button"
+                    :title="schedulerInfo && schedulerInfo.schedulerError ? '点击查看运行错误详情' : '点击查看调度状态'"
+                    :disabled="!schedulerInfo"
+                    @click="openStateDialog">
+                <span class="state-text">{{ schedulerText }}</span>
+            </button>
         </div>
     </header>
 
@@ -79,7 +86,6 @@
                     </button>
                 </div>
                 <div class="schedule-list">
-                    <div v-if="scheduleList.length <= 1" class="empty-hint">暂无日程表，点击 ＋ 创建</div>
                     <div v-for="s in scheduleList"
                          :key="s.id"
                          class="schedule-item"
@@ -93,6 +99,7 @@
                         </div>
                         <span class="schedule-count" v-if="!s.virtual">{{ s.taskCount }} 任务</span>
                     </div>
+                    <div v-if="scheduleList.length <= 1" class="schedule-empty">暂无日程表，点击 ＋ 创建</div>
                 </div>
             </div>
 
@@ -547,6 +554,15 @@
                     <p>感谢 <b>CodeBuddy</b>（腾讯 AI 编程助手）在本项目的界面重构、功能开发与文档整理中的协作。</p>
                 </div>
             </div>
+
+            <!-- 数据管理 -->
+            <div class="about-data-card">
+                <div class="about-data-title">数据管理</div>
+                <p class="about-data-desc">删除操作将清空所有日程表、任务及其执行日志，并重置用户名，且不可恢复。</p>
+                <button class="about-danger-btn" @click="clearAllData">
+                    <i class="fa-solid fa-trash-can"></i> 删除所有数据
+                </button>
+            </div>
         </section>
     </main>
 
@@ -583,6 +599,39 @@
     <el-dialog v-model="historyVisible" title="执行历史" width="720px" append-to-body>
         <pre class="result-output history-output">{{ historyText }}</pre>
     </el-dialog>
+
+    <!-- 运行错误详情弹窗 -->
+    <el-dialog v-model="errorDialogVisible" title="运行错误详情" width="640px" append-to-body>
+        <div v-if="errorDetail && errorDetail.task" class="err-task-block">
+            <div class="err-task-head">
+                <span class="err-task-name">{{ errTaskName }}</span>
+                <span class="err-task-status">{{ errorDetail.task.lastStatus }}</span>
+            </div>
+            <div class="err-task-meta">
+                <div><span class="err-label">命令</span><code v-if="errorDetail.task.command && errorDetail.task.command !== 'noop'" class="err-code">{{ errorDetail.task.command }}</code><span v-else class="err-code-placeholder">由系统自动生成</span></div>
+                <div v-if="errorDetail.task.workingDir"><span class="err-label">工作目录</span><code class="err-code">{{ errorDetail.task.workingDir }}</code></div>
+                <div><span class="err-label">退出码</span><span>{{ errorDetail.task.lastExitCode }}</span></div>
+            </div>
+            <div class="err-output-wrap">
+                <div class="err-output-title">错误输出 (stderr)</div>
+                <pre class="result-output err-output">{{ errorDetail.task.lastStderr || (errorDetail.log && errorDetail.log.stderr) || '（无）' }}</pre>
+            </div>
+            <div class="err-output-wrap">
+                <div class="err-output-title">标准输出 (stdout)</div>
+                <pre class="result-output err-output">{{ errorDetail.task.lastStdout || (errorDetail.log && errorDetail.log.stdout) || '（无）' }}</pre>
+            </div>
+        </div>
+        <div v-else class="err-task-empty">暂无错误任务详情。</div>
+        <template #footer>
+            <el-button @click="errorDialogVisible = false">关闭</el-button>
+            <el-button type="primary" @click="clearSchedulerError">我已知晓，清除错误</el-button>
+        </template>
+    </el-dialog>
+
+    <!-- 调度状态信息弹窗（运行中 / 未运行 / 已暂停） -->
+    <el-dialog v-model="statusInfoVisible" title="调度状态" width="480px" append-to-body>
+        <pre class="result-output status-info-output">{{ statusInfoText }}</pre>
+    </el-dialog>
     <!-- 版本标识：开发调试用，默认隐藏（非删除） -->
     <div class="version-badge" v-show="false" @click="copyVersions" title="点击复制版本号">
         <span>HTML <b id="htmlVer">--</b></span>
@@ -594,7 +643,7 @@
 <script src="/vendor/index.full.min.js"></script>
 <script src="/vendor/dayjs.min.js"></script>
 <script src="/js/api.js"></script>
-<script>window.__APP_HTML_VERSION__ = '20260805.13';</script>
-<script src="/js/app.js?v=20260805.13"></script>
+<script>window.__APP_HTML_VERSION__ = '20260805.14';</script>
+<script src="/js/app.js?v=20260805.14"></script>
 </body>
 </html>

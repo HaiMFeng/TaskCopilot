@@ -2,11 +2,17 @@ package io.github.haimfeng.taskcopilot.web;
 
 import io.github.haimfeng.taskcopilot.domain.AppConfig;
 import io.github.haimfeng.taskcopilot.domain.Schedule;
+import io.github.haimfeng.taskcopilot.domain.TaskLog;
+import io.github.haimfeng.taskcopilot.web.dto.TaskResponse;
 import io.github.haimfeng.taskcopilot.repository.AppConfigRepository;
 import io.github.haimfeng.taskcopilot.repository.ScheduleRepository;
+import io.github.haimfeng.taskcopilot.repository.TaskLogRepository;
 import io.github.haimfeng.taskcopilot.repository.TaskRepository;
 import io.github.haimfeng.taskcopilot.service.TaskScheduler;
+import io.github.haimfeng.taskcopilot.service.TaskService;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -30,6 +36,8 @@ public class SystemController {
 
     private final TaskScheduler taskScheduler;
     private final TaskRepository taskRepository;
+    private final TaskService taskService;
+    private final TaskLogRepository taskLogRepository;
     private final ScheduleRepository scheduleRepository;
     private final AppConfigRepository appConfigRepository;
 
@@ -75,11 +83,15 @@ public class SystemController {
 
     public SystemController(TaskScheduler taskScheduler,
                             TaskRepository taskRepository,
+                            TaskService taskService,
+                            TaskLogRepository taskLogRepository,
                             ScheduleRepository scheduleRepository,
                             AppConfigRepository appConfigRepository,
                             org.springframework.core.env.Environment env) {
         this.taskScheduler = taskScheduler;
         this.taskRepository = taskRepository;
+        this.taskService = taskService;
+        this.taskLogRepository = taskLogRepository;
         this.scheduleRepository = scheduleRepository;
         this.appConfigRepository = appConfigRepository;
         this.env = env;
@@ -393,6 +405,66 @@ public class SystemController {
     }
 
     /**
+     * 获取最近一次导致调度器异常的任务详情及其失败日志输出，供前端错误弹窗展示。
+     * 若无错误任务记录则返回空结构。
+     */
+    @GetMapping("/scheduler-error-detail")
+    public Map<String, Object> schedulerErrorDetail() {
+        long errorTaskId = taskScheduler.getErrorTaskId();
+        Map<String, Object> result = new LinkedHashMap<>();
+        if (errorTaskId < 0) {
+            result.put("hasError", false);
+            return result;
+        }
+        try {
+            TaskResponse tr = taskService.get(errorTaskId);
+            Map<String, Object> task = new LinkedHashMap<>();
+            task.put("id", tr.id());
+            task.put("name", tr.name());
+            task.put("typeCode", tr.typeCode());
+            task.put("typeName", tr.typeName());
+            task.put("command", tr.command());
+            task.put("workingDir", tr.workingDir());
+            task.put("config", tr.config());
+            task.put("lastStatus", tr.lastStatus());
+            task.put("lastExitCode", tr.lastExitCode());
+            task.put("lastStdout", tr.lastStdout());
+            task.put("lastStderr", tr.lastStderr());
+            task.put("remark", tr.remark());
+            result.put("task", task);
+            // 取该任务最近若干条日志，筛选失败/超时的最早一条作为错误输出
+            Pageable page = PageRequest.of(0, 20);
+            TaskLog log = taskLogRepository.findByTaskIdOrderByStartedAtDesc(errorTaskId, page)
+                    .stream()
+                    .filter(l -> !"SUCCESS".equals(l.getStatus()))
+                    .findFirst()
+                    .orElse(null);
+            if (log != null) {
+                Map<String, Object> logMap = new LinkedHashMap<>();
+                logMap.put("status", log.getStatus());
+                logMap.put("exitCode", log.getExitCode());
+                logMap.put("stderr", log.getStderr());
+                logMap.put("stdout", log.getStdout());
+                logMap.put("startedAt", log.getStartedAt());
+                result.put("log", logMap);
+            }
+        } catch (Exception e) {
+            // 任务可能已被删除，忽略
+        }
+        result.put("hasError", true);
+        return result;
+    }
+
+    /**
+     * 手动清除调度器异常状态（任务错误修复后由用户确认）。
+     */
+    @PostMapping("/scheduler/reset-error")
+    public Map<String, Object> resetSchedulerError() {
+        taskScheduler.resetError();
+        return schedulerStatus();
+    }
+
+    /**
      * 获取当前运行中的进程名列表（去重、按字母排序），供前端「选择进程」下拉使用。
      */
     @GetMapping("/processes")
@@ -463,6 +535,25 @@ public class SystemController {
         result.put("isFile", isFile);
         result.put("extension", ext);
         result.put("ok", exists && isFile);
+        return result;
+    }
+
+    /**
+     * 删除所有业务数据：任务执行日志、任务、日程表，并重置仪表盘用户名。
+     * 操作不可恢复，需由前端二次确认后调用。
+     */
+    @org.springframework.transaction.annotation.Transactional
+    @PostMapping("/clear-data")
+    public Map<String, Object> clearAllData() {
+        taskScheduler.pauseAll();                       // 先停止所有调度
+        taskLogRepository.deleteAll();
+        taskRepository.deleteAll();
+        scheduleRepository.deleteAll();
+        appConfigRepository.findById("displayName").ifPresent(appConfigRepository::delete);
+        cachedDisplayName = null;                      // 重置用户名缓存
+        taskScheduler.resumeAll();                     // 重新加载（此时无任务，自动调度为空）
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("ok", true);
         return result;
     }
 

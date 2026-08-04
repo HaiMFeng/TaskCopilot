@@ -138,6 +138,7 @@ body {
 .topbar-right { margin-left: auto; }
 /* 顶栏状态药丸与详情页 result-badge 统一视觉风格 */
 .state-pill {
+    font-family: inherit;
     font-size: 12px;
     font-weight: 600;
     padding: 2px 10px;
@@ -145,6 +146,26 @@ body {
     background: rgba(154, 163, 178, 0.15);
     border: 1px solid rgba(154, 163, 178, 0.4);
     color: var(--text-dim);
+    cursor: default;
+    outline: none;
+    transition: background 0.2s ease, border-color 0.2s ease, transform 0.08s ease, opacity 0.2s ease;
+}
+.state-pill:not(:disabled) {
+    cursor: pointer;
+}
+/* 可点击状态的按下反馈（统一） */
+.state-pill:not(:disabled):active {
+    transform: scale(0.96);
+}
+/* 各状态悬停：按自身配色轻微提亮，提示可点击 */
+.state-pill.running:not(:disabled):hover {
+    background: rgba(56, 211, 159, 0.28);
+    border-color: rgba(56, 211, 159, 0.75);
+}
+.state-pill.idle:not(:disabled):hover,
+.state-pill.paused:not(:disabled):hover {
+    background: rgba(154, 163, 178, 0.28);
+    border-color: rgba(154, 163, 178, 0.75);
 }
 .state-pill.running {
     background: rgba(56, 211, 159, 0.15);
@@ -156,10 +177,64 @@ body {
     color: var(--text-dim);
     border-color: rgba(154, 163, 178, 0.4);
 }
+/* 运行错误：持续闪烁 + 泛光动画，提示用户点击查看 */
 .state-pill.error {
     background: rgba(239, 68, 68, 0.15);
     color: #ef4444;
     border-color: rgba(239, 68, 68, 0.4);
+    cursor: pointer;
+    animation: state-pill-error 1.4s ease-in-out infinite;
+}
+@keyframes state-pill-error {
+    0%, 100% {
+        border-color: rgba(239, 68, 68, 0.45);
+        box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+        opacity: 0.85;
+    }
+    50% {
+        border-color: rgba(239, 68, 68, 0.9);
+        box-shadow: 0 0 10px 2px rgba(239, 68, 68, 0.65);
+        opacity: 1;
+    }
+}
+
+/* 运行错误详情弹窗 */
+.err-task-block { display: flex; flex-direction: column; gap: 12px; }
+.err-task-head { display: flex; align-items: center; gap: 10px; }
+.err-task-name { font-size: 15px; font-weight: 600; color: var(--text); }
+.err-task-status {
+    font-size: 12px; font-weight: 600; padding: 1px 8px; border-radius: 999px;
+    background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.4);
+}
+.err-task-meta { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--text-dim); }
+.err-task-meta .err-label { display: inline-block; min-width: 64px; color: var(--text-dim); margin-right: 6px; }
+.err-code {
+    font-family: var(--font-mono, monospace); font-size: 12px; color: var(--text);
+    background: var(--bg-input, rgba(255,255,255,0.04)); padding: 2px 8px; border-radius: 999px;
+    border: 1px solid var(--border);
+    word-break: break-all;
+}
+.err-code-placeholder {
+    font-size: 12px; font-style: italic; color: var(--text-dim);
+    background: var(--bg-input, rgba(255,255,255,0.04)); padding: 1px 8px; border-radius: 999px;
+    border: 1px dashed var(--border);
+}
+.err-output-wrap { display: flex; flex-direction: column; gap: 4px; }
+.err-output-title { font-size: 12px; color: var(--text-dim); }
+.err-output {
+    margin: 0; max-height: 180px; overflow: auto; white-space: pre-wrap; word-break: break-all;
+    font-family: var(--font-mono, monospace); font-size: 12px; line-height: 1.5;
+    color: #ffb4b4; background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.25);
+    border-radius: 6px; padding: 8px 10px;
+}
+.err-task-empty { color: var(--text-dim); font-size: 13px; }
+
+/* 调度状态信息弹窗（非错误） */
+.status-info-output {
+    margin: 0; white-space: pre-wrap; word-break: break-word;
+    font-family: var(--font-mono, monospace); font-size: 13px; line-height: 1.7;
+    color: var(--text); background: var(--bg-raised, rgba(255,255,255,0.06));
+    border: 1px solid var(--border); border-radius: 6px; padding: 12px 14px;
 }
 .state-pill.idle {
     background: rgba(154, 163, 178, 0.1);
@@ -218,6 +293,13 @@ body {
 .schedule-item.running .schedule-dot { background: var(--accent-2); box-shadow: 0 0 8px var(--accent-2); }
 .schedule-name { font-size: 14px; font-weight: 500; }
 .schedule-count { font-size: 11px; color: var(--text-dim); padding-left: 16px; }
+/* 日程表列表的空提示：作为列表内普通项，紧跟在不启用项下方，左对齐、不占满高度 */
+.schedule-empty {
+    font-size: 12px;
+    color: var(--text-dim);
+    padding: 8px 10px;
+    line-height: 1.5;
+}
 
 /* 左右分栏 */
 .split { flex: 1; min-width: 0; display: flex; }
@@ -311,7 +393,7 @@ body {
 .empty-hint { padding: 30px; font-size: 13px; }
 
 /* 关于页（暗色风格，左对齐，与左边框留间隔） */
-.about-view { padding: 28px 0; overflow-y: auto; }
+.about-view { flex-direction: column; align-items: stretch; padding: 28px 0; overflow-y: auto; }
 .about-card {
     max-width: 620px;
     margin: 0 24px;
@@ -357,6 +439,21 @@ body {
 .about-thanks { margin-top: 18px; font-size: 13px; color: var(--text-dim); line-height: 1.7; text-align: left; }
 .about-thanks-title { font-weight: 600; color: var(--text); margin-bottom: 4px; }
 .about-thanks p { margin: 2px 0; }
+
+/* 数据管理块 */
+.about-data-card {
+    max-width: 620px; margin: 16px 24px 0;
+    background: var(--bg-raised); border: 1px solid #5a2a2e;
+    border-radius: 14px; padding: 20px 30px;
+}
+.about-data-title { font-size: 16px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+.about-data-desc { font-size: 13px; color: var(--text-dim); margin: 0 0 14px; line-height: 1.6; }
+.about-danger-btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 9px 16px; border-radius: 8px; font-size: 14px; cursor: pointer;
+    color: #fff; background: #e5484d; border: none; transition: background .15s;
+}
+.about-danger-btn:hover { background: #c93b40; }
 
 .detail-form { display: flex; flex-direction: column; gap: 14px; max-width: 640px; }
 .detail-head { display: flex; align-items: center; justify-content: space-between; }
@@ -1072,6 +1169,12 @@ body {
     .schedule-rail-head .btn-create-schedule .btn-txt {
         display: none;
     }
+    /* 移动端：让新建按钮与日程表项高度一致 */
+    .schedule-rail-head .btn-create-schedule.btn-sm {
+        padding: 6px 10px;
+        font-size: 12px;
+        line-height: 1.5;
+    }
     /* 移动端：关于页 */
     .about-view {
         overflow-y: auto;            /* 覆盖 .mode-view 的 overflow:hidden，恢复滚动 */
@@ -1079,6 +1182,7 @@ body {
         padding: 16px 0;
     }
     .about-card { margin: 0 14px; padding: 20px 18px; }
+    .about-data-card { margin: 16px 14px 0; padding: 18px; }
     /* 标签保持固定列宽，版本号仅在其自身列内（芯片边界）换行，不侵入标签列 */
     .about-label { width: 48px; flex-shrink: 0; }
     /* 版本号：整体在一行；若过窄则仅在芯片边界整段换行，不出现半截换行 */
@@ -1108,6 +1212,8 @@ body {
         -webkit-tap-highlight-color: transparent;
     }
     .schedule-count { padding-left: 0; white-space: nowrap; }
+    /* 移动端：页面布局紧凑，不显示「暂无日程表」提示 */
+    .schedule-empty { display: none; }
 
     .split {
         display: flex;

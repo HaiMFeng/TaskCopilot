@@ -74,7 +74,7 @@ public class TaskExecutionService {
             CommandExecutor.ExecutionResult result = runByType(task);
             log.info("任务 [{}] 执行结束，状态={}, 退出码={}", task.getName(), result.status(), result.exitCode());
             if (result.status() == ExecutionStatus.FAILURE) {
-                taskScheduler.markError();
+                taskScheduler.markError(task.getId());
             }
             // 执行失败或超时的任务自动停用，避免反复触发同一个坏任务
             if (result.status() != ExecutionStatus.SUCCESS) {

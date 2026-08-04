@@ -59,8 +59,11 @@ const API = (() => {
         updateDisplayName: (name) => request('POST', '/system/display-name', {name}),
         pauseScheduler: () => request('POST', '/system/scheduler/pause'),
         resumeScheduler: () => request('POST', '/system/scheduler/resume'),
+        schedulerErrorDetail: () => request('GET', '/system/scheduler-error-detail'),
+        resetSchedulerError: () => request('POST', '/system/scheduler/reset-error'),
         checkPath: (path) => request('POST', '/system/check-path', {path}),
         fetchProcesses: () => request('GET', '/system/processes'),
+        clearData: () => request('POST', '/system/clear-data'),
 
         // 终端（单一持久终端 + 轮询）
         terminalState: () => request('GET', '/terminal/state'),

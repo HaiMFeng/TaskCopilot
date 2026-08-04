@@ -19,6 +19,7 @@ import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * 任务调度中枢：维护每个任务的下一次触发，并支持全局暂停 / 恢复。
@@ -46,6 +47,8 @@ public class TaskScheduler {
     private final AtomicBoolean globallyPaused = new AtomicBoolean(false);
     /** 调度器整体运行是否处于异常状态（执行/排期失败时置位） */
     private final AtomicBoolean schedulerError = new AtomicBoolean(false);
+    /** 最近一次导致异常状态的任务 id（默认 -1 表示无） */
+    private final AtomicLong errorTaskId = new AtomicLong(-1);
 
     public TaskScheduler(ThreadPoolTaskScheduler taskCopilotScheduler,
                          TaskRepository taskRepository,
@@ -174,6 +177,22 @@ public class TaskScheduler {
     /** 标记调度器整体进入异常状态（任务执行失败时调用） */
     public void markError() {
         schedulerError.set(true);
+    }
+
+    /** 标记调度器整体进入异常状态，并记录导致异常的任务 id */
+    public void markError(long taskId) {
+        schedulerError.set(true);
+        errorTaskId.set(taskId);
+    }
+
+    /** 清除异常状态（任务错误修复后由用户手动确认） */
+    public void resetError() {
+        schedulerError.set(false);
+    }
+
+    /** 最近一次导致异常状态的任务 id；-1 表示无记录 */
+    public long getErrorTaskId() {
+        return errorTaskId.get();
     }
 
     public Instant nextExecutionOf(Long taskId) {

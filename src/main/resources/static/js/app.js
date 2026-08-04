@@ -5,7 +5,7 @@ const {createApp, ref, reactive, computed, onMounted, onBeforeUnmount, nextTick}
 const {ElMessage, ElMessageBox} = ElementPlus;
 
 // 前端 JS 版本号（修改后请同步递增，便于辨识加载版本）
-const APP_JS_VERSION = '20260805.13';
+const APP_JS_VERSION = '20260805.14';
 
 /** 任务顶级字段（不放进 config，提交时提升到 payload 顶层） */
 const TOP_LEVEL_FIELDS = new Set(['command', 'workingDir', 'timeoutSeconds']);
@@ -332,7 +332,19 @@ createApp({
         const historyText = ref('');
         const resultOutput = ref(null);
 
-        const schedulerInfo = ref(null);
+        // 初始给一个默认结构，确保右上角状态标签在异步数据返回前也始终可见（参考历史显示逻辑：标签常驻）
+        const schedulerInfo = ref({
+            schedulerError: false,
+            schedulerPaused: false,
+            scheduledCount: 0,
+        });
+
+        /* ---------------- 调度状态弹窗 ---------------- */
+        const errorDialogVisible = ref(false);
+        const errorDetail = ref(null);
+        const errTaskName = ref('');
+        const statusInfoVisible = ref(false);
+        const statusInfoText = ref('');
 
         /* ---------------- 移动端适配 ---------------- */
         const isMobile = ref(window.innerWidth <= 768);
@@ -969,7 +981,45 @@ createApp({
             try {
                 schedulerInfo.value = await API.systemInfo();
             } catch (_) {
-                schedulerInfo.value = null;
+                // 请求失败时保留已有（默认）状态，不置空，确保标签常驻
+            }
+        }
+
+        async function openStateDialog() {
+            const info = schedulerInfo.value;
+            if (!info) return;
+            if (info.schedulerError) {
+                try {
+                    const detail = await API.schedulerErrorDetail();
+                    errorDetail.value = detail;
+                    errTaskName.value = (detail && detail.task && detail.task.name) || '未知任务';
+                } catch (e) {
+                    errorDetail.value = { hasError: true };
+                    errTaskName.value = '未知任务';
+                }
+                errorDialogVisible.value = true;
+                return;
+            }
+            // 运行中 / 未运行 / 已暂停：展示当前任务状态
+            const parts = [];
+            parts.push('当前状态：' + schedulerText.value);
+            if (info.schedulerPaused) parts.push('调度已全局暂停，任务不会自动执行。');
+            if (info.scheduledCount > 0) parts.push('正在调度的任务数：' + info.scheduledCount);
+            else parts.push('当前没有正在调度的任务。');
+            parts.push('点击「不启用」可暂停当前日程表；右键日程表项可删除；双击可启用。');
+            statusInfoText.value = parts.join('\n');
+            statusInfoVisible.value = true;
+        }
+
+        async function clearSchedulerError() {
+            try {
+                await API.resetSchedulerError();
+                errorDialogVisible.value = false;
+                errorDetail.value = null;
+                ElMessage.success('运行错误状态已清除');
+                await loadSchedulerState();
+            } catch (e) {
+                ElMessage.error('清除失败：' + (e.message || e));
             }
         }
 
@@ -1240,6 +1290,39 @@ createApp({
                 fallbackCopy(text);
             }
         }
+        async function clearAllData() {
+            try {
+                await ElMessageBox.confirm(
+                    '此操作将永久删除所有日程表、任务及其执行日志，且不可恢复。',
+                    '警告：删除所有数据',
+                    { type: 'warning', confirmButtonText: '我已知晓，继续', cancelButtonText: '取消' }
+                );
+            } catch (e) {
+                return; // 用户取消
+            }
+            let input;
+            try {
+                const res = await ElMessageBox.prompt(
+                    '请输入仪表盘用户名「' + (dashHostName.value || 'USER') + '」以确认删除：',
+                    '二次确认',
+                    { type: 'warning', inputPlaceholder: '用户名', inputType: 'text' }
+                );
+                input = res.value;
+            } catch (e) {
+                return; // 用户取消
+            }
+            if ((input || '').trim() !== (dashHostName.value || 'USER').trim()) {
+                ElMessage.error('用户名不匹配，已取消删除');
+                return;
+            }
+            try {
+                await API.clearData();
+                ElMessage.success('所有数据已删除');
+                setTimeout(() => location.reload(), 600);
+            } catch (e) {
+                ElMessage.error('删除失败：' + (e.message || e));
+            }
+        }
         function fallbackCopy(text) {
             const ta = document.createElement('textarea');
             ta.value = text;
@@ -1276,7 +1359,10 @@ createApp({
             onDetailFieldUpdate, onCreateFieldUpdate, onTypeChange, onCreateTypeChange,
             saving, running, creating,
             createVisible, historyVisible, historyText, resultOutput,
+            errorDialogVisible, errorDetail, errTaskName, openStateDialog, clearSchedulerError,
+            statusInfoVisible, statusInfoText,
             schedulerText, schedulerPillClass, statusClass, lastStatusSuffix,
+            schedulerInfo,
             showResult, hasRun, resultHasError, resultBadgeClass, resultBadgeText, resultText,
             selectSchedule, createSchedule, activateSchedule, deleteSchedule,
             selectTask, toggleTask, saveDetail, runTask, viewHistory, deleteTask,
@@ -1289,7 +1375,7 @@ createApp({
             dashDiskFree, dashDiskTotal, dashDiskPercent,
             dashNetDown, dashNetUp, dashUptime, copyVersions,
             // 关于
-            htmlVer, jsVer, aboutVersion, copyVersion,
+            htmlVer, jsVer, aboutVersion, copyVersion, clearAllData,
             termRunning, termShell, termInput, termOutputRef,
             startTerminal, stopTerminal, sendTerminalCommand, sendTerminalInterrupt,
             taskTime, taskMinute,

@@ -8,8 +8,10 @@ import jakarta.annotation.PreDestroy;
 import java.awt.AWTException;
 import java.awt.HeadlessException;
 import java.awt.GraphicsConfiguration;
+import java.awt.Graphics2D;
 import java.awt.GraphicsDevice;
 import java.awt.GraphicsEnvironment;
+import java.awt.RenderingHints;
 import java.awt.Rectangle;
 import java.awt.Robot;
 import java.awt.image.BufferedImage;
@@ -125,7 +127,9 @@ public class ScreenCaptureService {
                 break;
             }
             try {
-                BufferedImage img = robot.createScreenCapture(captureRect);
+                // Robot 在 HiDPI 下坐标系为逻辑像素，截逻辑 bounds 才能铺满无黑边；
+                // 物理分辨率在 getJpeg 中通过放大绘制还原。
+                BufferedImage img = robot.createScreenCapture(screenRect);
                 latest.set(img);
                 lastCaptureMs.set(now);
             } catch (Exception e) {
@@ -142,11 +146,13 @@ public class ScreenCaptureService {
 
     /**
      * 按给定质量（0.1~1.0）返回最新截图的 JPEG 字节。无可用帧时返回 null。
+     * 截图源为逻辑分辨率，这里放大绘制到物理尺寸（DPI 缩放还原），保证画面铺满无黑边。
      */
     public byte[] getJpeg(double quality) {
         if (!available.get()) return null;
-        BufferedImage img = latest.get();
-        if (img == null) return null;
+        BufferedImage src = latest.get();
+        if (src == null) return null;
+        BufferedImage out = upscaleToPhysical(src);
         float q = (float) Math.max(0.1, Math.min(1.0, quality));
         try (ByteArrayOutputStream baos = new ByteArrayOutputStream();
              ImageOutputStream ios = ImageIO.createImageOutputStream(baos)) {
@@ -157,13 +163,28 @@ public class ScreenCaptureService {
                 params.setCompressionQuality(q);
             }
             writer.setOutput(ios);
-            writer.write(null, new IIOImage(img, null, null), params);
+            writer.write(null, new IIOImage(out, null, null), params);
             writer.dispose();
             return baos.toByteArray();
         } catch (IOException e) {
             log.warn("屏幕截图编码失败", e);
             return null;
         }
+    }
+
+    /** 将逻辑分辨率截图放大绘制到物理像素尺寸，避免黑边与变形。 */
+    private BufferedImage upscaleToPhysical(BufferedImage src) {
+        int pw = captureRect.width;
+        int ph = captureRect.height;
+        if (src.getWidth() == pw && src.getHeight() == ph) return src;
+        BufferedImage scaled = new BufferedImage(pw, ph, BufferedImage.TYPE_INT_RGB);
+        Graphics2D g = scaled.createGraphics();
+        g.setRenderingHint(RenderingHints.KEY_INTERPOLATION,
+                RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+        g.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
+        g.drawImage(src, 0, 0, pw, ph, null);
+        g.dispose();
+        return scaled;
     }
 
     /** 最近一次截图时间戳（毫秒）。 */

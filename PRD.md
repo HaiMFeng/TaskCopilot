@@ -1,149 +1,144 @@
-# TaskCopilot PRD
+# TaskCopilot 产品需求文档（PRD）
 
-## 1. 项目概述
-- **目的**：在一台无屏小主机上运行自动化服务，支持通过 Web 界面（局域网内任意设备）管理定时任务。
-- **核心价值**：轻量、易扩展、低资源占用（CPU 弱但内存充足）。
-- **命名**：TaskCopilot
+> 版本：v2026.08（随实现持续更新）
+> 定位：无屏小主机 / NAS / 软路由的定时任务调度与远程管理面板。
 
-## 2. 功能需求（MVP）
+---
 
-### 2.1 任务管理模式
-- **模式切换（顶部滑块）**：`每日任务` 与 `立即任务` 两种模式。
-    - **每日任务**（已实装）：通过"日程表（Schedule）"组织任务。
-    - **立即任务**（占位）：规划中的一次性并发执行能力，当前仅展示占位页。
-- **日程表（Schedule）**：把任务按场景/计划分组（如「工作日计划」「周末计划」）。
-    - 支持创建多个日程表。
-    - **同一时间只能有一个日程表处于「运行中（active）」**，切换时其余自动置为非运行。
-    - 只有运行中日程表下的启用任务才会被自动触发；非运行日程表下的任务仍可手动执行。
-    - 删除日程表时，其下任务及其执行记录一并删除。
-    - 首次启动若无任何日程表，自动创建一个「默认日程表」并设为运行中。
+## 1. 产品概述
 
-### 2.2 任务管理（每日任务模式）
-- **左右分栏布局**：
-    - 左栏：当前日程表下的任务列表（名称、类型、状态、启用开关），按触发时间自动排序，同一时间的任务支持拖拽调整顺序。
-    - 右栏：选中任务的详情面板，可编辑保存（名称、类型、触发配置、启用、备注），可立即执行并查看输出，可删除。
-- **新建任务**：通过弹窗完成，不影响主页面布局；表单按后端返回的 schema 动态渲染。
-- **任务属性**：名称、任务类型（6 种）、触发配置（按类型动态渲染，统一包含执行时间）、备注（可选）、启用/禁用。
-- **立即执行**：手动触发一次任务，不受定时限制。
-- **执行失败自动停用**：任务执行失败或超时后自动关闭启用开关，避免反复触发坏任务。
+### 1.1 背景
+无显示器的「小主机」常需执行定时任务（启动应用、拉取数据、执行脚本等），但缺乏易用的可视化管理手段，
+传统方式依赖 crontab / Windows 计划任务 + SSH，对非专业用户门槛高。
 
-### 2.3 任务类型扩展机制
-- **设计原则**：新增任务类型只需实现一个接口（`TaskTypeHandler`），用 `@Component` 注册为 Spring Bean，无需修改已有代码。
-- **当前实现**：
-    - `RUN_COMMAND` — 运行指令（命令、工作目录、超时）
-    - `OPEN_APP` — 打开应用（应用路径手动输入+校验、启动参数）
-    - `HTTP_REQUEST` — 发送请求（URL、方法、请求头、请求体）
-    - `KILL_PROCESS` — 结束进程（进程名手动输入+选择按钮、精确/模糊匹配、正常/强制终止）
-    - `SYSTEM_COMMAND` — 系统指令（关机、重启、休眠、锁屏，支持延时）
-- **前端适配**：后端提供 `/api/task-types` 接口返回类型列表及对应的配置表单 schema，前端动态渲染。
+### 1.2 目标
+提供一个**网页端**集中面板，让用户无需接显示器或 SSH 即可：
+- 管理定时任务与分组（日程表）
+- 实时掌握主机资源与运行状态
+- 远程执行命令、查看屏幕
+- 在手机上也能完成基本操作
 
-### 2.4 执行与日志
-- **调度引擎**：Spring `ThreadPoolTaskScheduler`（调度线程池 2 线程），执行走虚拟线程 + 信号量限流（并发上限 5）。
-- **调度策略**：采用"一次性调度 + 执行后重排"；只要任务类型能算出下次触发时间即接入，天然兼容非周期类型。
-- **执行过程**：`ProcessBuilder` 执行命令，设置超时，捕获 stdout/stderr。
-- **日志记录**：每次执行记录到 `task_log` 表，包含开始/结束时间、退出码、输出内容、状态（SUCCESS/FAILURE/TIMEOUT）。
-- **日志查看**：按任务查看最近 N 条日志，支持展开完整输出。
+### 1.3 用户画像
+- 个人开发者 / 极客，拥有 1~数台长期开机的小主机
+- 希望「设一次、长期跑」，并能在出问题时远程查看与干预
 
-### 2.5 全局控制
-- 一键暂停/恢复所有定时任务（用于维护）。
-- 显示小主机基础系统信息（CPU、内存、磁盘、运行中日程表的调度任务数）。
+---
+
+## 2. 功能需求
+
+### 2.1 仪表盘（Dashboard）
+- 主机名（可编辑显示名）
+- CPU / 内存 / 磁盘 使用率与容量
+- 网络：本机访问地址、DNS、网关、链路速度、实时上下行速率
+- 任务概览：运行中日程表、任务总数、启用/禁用数、日程表数
+- 调度器状态：运行中 / 已暂停（可暂停/恢复）
+
+### 2.2 日程表（Schedule）
+- 一个任务归属一个日程表；**全系统任一时刻至多一个日程表处于「启用」状态**（互斥）。
+- 操作：
+  - 单击 → 选中并加载其任务
+  - 双击 → 启用该日程表（其余自动停用）
+  - 右键 → 删除（虚拟「不启用」项不可删）
+  - 点击「不启用」→ 全部停用，暂停调度
+- 新建日程表、命名、查看任务数。
+- **持久化约束**：用户显式「不启用」的状态会被保留；刷新后不会自动重新启用某表。
+- 服务端 `/api/schedules/current` 在无一表启用时返回 `null`，前端据此保持「不启用」。
+
+### 2.3 任务管理（Task）
+- 任务类型由后端 `TaskTypeService` 提供 schema（动态表单），当前含：
+  - 应用启动（路径校验、参数、工作目录、是否隐藏窗口）
+  - URL 请求（GET/POST、Header、Body、超时）
+  - 文件/脚本执行（解释器、脚本路径、参数）
+  - （更多类型可在 `TaskTypeService` 注册）
+- 字段级校验：如可执行文件路径存在性由 `/api/system/check-path` 校验。
+- 操作：启用/禁用切换、手动执行、拖拽排序、查看执行历史与日志。
+- 排序：通过 `PUT /api/tasks/sort` 持久化顺序。
+
+### 2.4 终端（Terminal）
+- 内嵌网页终端，支持 CMD 与 PowerShell 两种 shell。
+- 启动 / 停止、命令输入框（回车发送）、Ctrl+C 中断。
+- 只读输出回显（不回传敏感交互式密码输入）。
+- 后端以独立进程方式启动 shell 并桥接 stdin/stdout。
+
+### 2.5 屏幕查看（Screen）
+- 通过 `java.awt.Robot` 截取主机主屏（使用逻辑分辨率，避免高 DPI 缩放黑边）。
+- 清晰度可选：流畅(0.3) / 标准(0.5) / 清晰(0.7) / 原画(0.9)，对应 JPEG 质量。
+- 前端 1 秒间隔轮询；进入页面自动开始、离开（`onBeforeUnmount` / 切走）自动停止。
+- 无头环境（如 `java -jar` 于无显示器主机）：已在启动类与 `application.properties` 中关闭 headless。
+- 接口：`GET /api/screen?quality=` 返回 JPEG，响应头 `X-Screen-Size` 携带分辨率；不可用时 503。
+
+### 2.6 关于（About）
+- 一句话简介、作者（HaiMFeng 海明风）、主页、邮箱。
+- 版本号（点击复制，始终可用）。
+- 项目主页、MIT 协议、反馈入口（Issues）链接。
+- 简短致谢。
+
+### 2.7 移动端
+- 响应式布局；模式切换在窄屏以选择框（`el-select`）呈现。
+- 日程表 → 任务列表 → 详情以底部面板弹出。
+- 图标、工具栏风格 PC / 移动端统一（accent 蓝色图标 + 主文本色）。
+
+---
 
 ## 3. 非功能性需求
-- **性能**：空闲 CPU < 1%，内存 < 200MB（不含 JVM 基础）。
-- **可靠性**：任务持久化到数据库，服务重启自动恢复（含运行中日程表状态）。
-- **部署**：仅需 JDK 21+，`java -jar` 运行，默认 H2 嵌入式数据库（文件库 `./data/taskcopilot`）。
-- **安全**：仅监听局域网地址（默认 `0.0.0.0:8080`），可添加简单 Basic Auth（可选，尚未实装）。
-- **前端兼容**：Chrome/Firefox/Safari 桌面端及移动端浏览器。
 
-## 4. 技术栈
-- **后端**：Spring Boot 4.1.0 + JDK 21（虚拟线程） + Spring Data JPA + H2 + Jackson 3
-- **前端**：Vue 3 + Element Plus + Font Awesome（经 `resources/static/vendor`、`webfonts` 本地引入，无 CDN、无构建步骤），API 层已封装隔离，后续可平滑迁移至 Vue 3 + Vite。
-- **构建**：Maven（`./mvnw`），前端静态文件由 Spring Boot 直接托管。
+- **可离线**：前端依赖本地 `vendor` / `webfonts`，无外部 CDN。
+- **零前端构建**：原生静态资源，直接由 Spring Boot 托管。
+- **轻量**：单 Jar 运行，H2 文件型数据库，无外部中间件。
+- **可演进**：API 层与 UI 解耦，预留迁移至 Vue 3 + Vite 的空间。
 
-## 5. 数据模型（核心表）
+---
 
-### 表 `schedule`（日程表）
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| id | BIGINT PK | 自增 |
-| name | VARCHAR(100) | 日程表名称 |
-| remark | VARCHAR(255) | 备注 |
-| active | BOOLEAN | 是否运行中（全局唯一） |
-| sort_order | INT | 排序序号 |
-| created_at / updated_at | TIMESTAMP | 时间戳 |
+## 4. 技术架构
 
-### 表 `task`
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| id | BIGINT PK | 自增 |
-| name | VARCHAR(100) | 任务名称 |
-| command | TEXT | 命令或脚本 |
-| working_dir | VARCHAR(255) | 工作目录（可选） |
-| type_code | VARCHAR(20) | 任务类型标识（如 `DAILY`） |
-| config_json | TEXT | 触发配置（JSON，例如 `{"hour":8,"minute":30}`） |
-| enabled | BOOLEAN | 是否启用 |
-| schedule_id | BIGINT FK | 所属日程表（可空） |
-| sort_order | INT | 排序序号 |
-| timeout_seconds | INT | 超时秒数（可选） |
-| remark | VARCHAR(255) | 备注 |
-| created_at / updated_at | TIMESTAMP | 时间戳 |
+### 4.1 后端
+- Spring Boot 3 + Spring MVC
+- 持久化：Spring Data JPA + H2（文件型，`ddl-auto=update`）
+- 调度：`TaskScheduler` + `ScheduledTaskRegistrar`，Cron 驱动；`SchedulerBootstrap` 启动时加载启用日程表
+- 主机信息：OSHI；屏幕：`java.awt.Robot`
+- 语言：Java 17，Lombok 简化实体
 
-### 表 `task_log`
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| id | BIGINT PK | 自增 |
-| task_id | BIGINT FK | 关联任务 |
-| trigger_source | VARCHAR(20) | SCHEDULED / MANUAL |
-| started_at / finished_at | TIMESTAMP | 执行起止 |
-| exit_code | INT | 退出码（-1 超时） |
-| stdout / stderr | TEXT | 输出 |
-| status | VARCHAR(20) | SUCCESS / FAILURE / TIMEOUT |
+### 4.2 前端
+- Vue 3（CDN 本地化 `vendor/vue.global.prod.js`）+ Element Plus（`vendor/index.full.min.js`）
+- Font Awesome（`vendor/fontawesome-all.min.css` + `webfonts/`）
+- 单页结构：`index.html` + `js/app.js`（组合式 API `setup`）+ `js/api.js` + `css/app.css`
 
-## 6. API 设计（RESTful）
+### 4.3 API 设计
+REST 风格，JSON 为主；屏幕接口返回二进制 JPEG。完整端点见 README「HTTP API 一览」。
 
-### 日程表
-- `GET /api/schedules` — 日程表列表（含任务数）
-- `GET /api/schedules/current` — 当前运行中日程表（不存在则自动创建默认）
-- `GET /api/schedules/{id}` — 日程表详情
-- `POST /api/schedules` — 创建日程表
-- `PUT /api/schedules/{id}` — 更新日程表
-- `POST /api/schedules/{id}/activate` — 切换为运行中日程表（互斥）
-- `DELETE /api/schedules/{id}` — 删除日程表（级联删除其下任务及日志）
+---
 
-### 任务
-- `GET /api/tasks?scheduleId=` — 任务列表（可按日程表过滤）
-- `POST /api/tasks` — 创建任务
-- `PUT /api/tasks/{id}` — 更新任务
-- `DELETE /api/tasks/{id}` — 删除任务
-- `POST /api/tasks/{id}/execute` — 立即执行
-- `PATCH /api/tasks/{id}/toggle` — 启用/禁用
-- `PUT /api/tasks/sort` — 批量更新排序（`{orderedIds: [...]}`）
-- `GET /api/tasks/{id}/logs?limit=50` — 查看日志
+## 5. 数据模型（核心实体）
 
-### 其它
-- `GET /api/task-types` — 获取所有任务类型及配置 schema
-- `GET /api/system/info` — 系统信息
-- `GET /api/system/processes` — 获取运行中进程名列表（供结束进程选择）
-- `POST /api/system/check-path` — 校验应用路径是否存在
-- `POST /api/system/scheduler/pause` — 全局暂停
-- `POST /api/system/scheduler/resume` — 全局恢复
+- **Schedule（日程表）**：`id, name, active(bool), sortOrder`
+- **Task（任务）**：`id, scheduleId, name, typeCode, config(JSON), enabled, sortOrder, remark, lastRunAt, lastStatus`
+- **TaskType（任务类型定义）**：`typeCode, typeDisplayName, schema(字段定义)`
+- 运行态日志：任务执行历史（见 `GET /api/tasks/{id}/logs`）
 
-## 7. 界面简要描述
-- **模式切换滑块**：顶部 `每日任务` / `立即任务`。
-- **每日任务页**：左侧日程表选择条（单击选中、双击切换运行、右键删除）+ 左右分栏。
-    - 左栏任务列表：触发时间标签、名称、类型徽标、状态点、启用迷你开关，按时间自动排序，同时间任务可拖拽。
-    - 右栏详情：编辑表单 + 立即执行 + 最近执行输出 + 删除。
-- **新建/编辑弹窗**：动态表单（名称、类型下拉、按 schema 渲染的触发配置、备注）。保存后刷新列表。
-- **立即任务页**：占位卡片（建设中）。
+---
 
-## 8. 开发路线图
-- **M1**：后端 CRUD + 每日定时任务调度 + 日志记录；前端任务列表、添加/编辑、日志查看。
-- **M2**：日程表分组与互斥激活、拖拽排序、全局开关、系统信息、类型扩展示例（如一次性任务）。
-- **M3**：测试、文档、简单认证、Docker 支持（可选）。
+## 6. 关键交互流程
 
-## 9. 约束
-- 仅限局域网访问。
-- 默认任务超时 60s，并发上限 5 个。
-- 初期无用户认证（信任内网），后期可加 Basic Auth。
+1. **启用某日程表**：双击 → `POST /api/schedules/{id}/activate` → 后端停用其余 → 调度器重载该表任务。
+2. **不启用**：选择「不启用」→ `POST /api/schedules/deactivate` → 全部停用 → 刷新后 `/current` 返回 `null`，保留停用状态。
+3. **屏幕轮询**：进入屏幕页 → 定时器每 1s 请求 `/api/screen` → 离开清除定时器。
+4. **手动执行任务**：点击执行 → `POST /api/tasks/{id}/execute` → 后端按类型构造并执行 → 写入日志。
+
+---
+
+## 7. 边界与约束
+
+- 屏幕查看依赖图形环境；纯无显卡/无会话的服务器可能无法取屏（返回 503）。
+- 终端为只读展示，不适合需要交互式密码输入的场景。
 - H2 当前 `ddl-auto=update`，正式部署建议改用 Flyway 管理表结构。
-- **许可证**：本项目基于 MIT License 开源（详见仓库根目录 `LICENSE`）。个人项目，欢迎学习、使用与扩展；请勿用于商业用途。
+- **许可证**：本项目基于 MIT License 开源（详见仓库根目录 `LICENSE`）。
+
+---
+
+## 8. 后续演进（Roadmap，非当前范围）
+
+- 文件管理器（远程浏览/管理小主机文件）
+- 多用户与鉴权
+- 任务执行通知（Webhook / 邮件）
+- 容器化部署（Dockerfile）
+- 前端迁移至 Vue 3 + Vite 构建管线

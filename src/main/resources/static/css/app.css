@@ -310,6 +310,54 @@ body {
 .placeholder-icon { font-size: 42px; }
 .empty-hint { padding: 30px; font-size: 13px; }
 
+/* 关于页（暗色风格，左对齐，与左边框留间隔） */
+.about-view { padding: 28px 0; overflow-y: auto; }
+.about-card {
+    max-width: 620px;
+    margin: 0 24px;
+    background: var(--bg-raised);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 28px 30px;
+    box-shadow: 0 6px 24px rgba(0,0,0,.35);
+    text-align: left;
+}
+.about-logo { font-size: 38px; color: var(--accent); margin-bottom: 8px; }
+.about-title { margin: 0 0 4px; font-size: 24px; color: var(--text); font-weight: 700; }
+.about-tagline { margin: 0 0 22px; color: var(--text-dim); font-size: 14px; }
+.about-row {
+    display: flex; align-items: flex-start; gap: 12px;
+    padding: 10px 0; border-bottom: 1px solid var(--border);
+    font-size: 14px;
+}
+.about-label {
+    width: 56px; flex-shrink: 0; color: var(--text-dim);
+    text-align: left;
+}
+.about-value { color: var(--text); word-break: break-all; text-align: left; }
+.about-version-row { cursor: pointer; user-select: none; border-radius: 6px; }
+.about-version {
+    display: inline-flex; align-items: center; gap: 8px;
+    color: var(--accent);
+    text-decoration: none;
+    transition: color .15s, opacity .15s;
+}
+.about-version:hover { color: var(--accent); opacity: .8; text-decoration: underline; }
+.about-version .ver-sep { color: var(--text-dim); font-weight: 400; opacity: .7; }
+.about-version b { font-weight: 700; }
+.about-copy { font-size: 12px; opacity: .7; margin-left: 2px; }
+.about-links { display: flex; flex-wrap: wrap; gap: 10px; margin: 20px 0 4px; }
+.about-link {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 8px 12px; border-radius: 8px; font-size: 13px;
+    color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent);
+    text-decoration: none; transition: background .15s;
+}
+.about-link:hover { background: color-mix(in srgb, var(--accent) 24%, transparent); }
+.about-thanks { margin-top: 18px; font-size: 13px; color: var(--text-dim); line-height: 1.7; text-align: left; }
+.about-thanks-title { font-weight: 600; color: var(--text); margin-bottom: 4px; }
+.about-thanks p { margin: 2px 0; }
+
 .detail-form { display: flex; flex-direction: column; gap: 14px; max-width: 640px; }
 .detail-head { display: flex; align-items: center; justify-content: space-between; }
 .detail-head h2 { margin: 0; font-size: 18px; }
@@ -1024,6 +1072,25 @@ body {
     .schedule-rail-head .btn-create-schedule .btn-txt {
         display: none;
     }
+    /* 移动端：关于页 */
+    .about-view {
+        overflow-y: auto;            /* 覆盖 .mode-view 的 overflow:hidden，恢复滚动 */
+        -webkit-overflow-scrolling: touch;
+        padding: 16px 0;
+    }
+    .about-card { margin: 0 14px; padding: 20px 18px; }
+    /* 标签保持固定列宽，版本号仅在其自身列内（芯片边界）换行，不侵入标签列 */
+    .about-label { width: 48px; flex-shrink: 0; }
+    /* 版本号：整体在一行；若过窄则仅在芯片边界整段换行，不出现半截换行 */
+    .about-value.about-version { flex-wrap: wrap; gap: 6px 10px; font-size: 13px; }
+    .about-version .ver-chip { white-space: nowrap; }
+    /* 三个链接均分一行，避免 2+1 不协调换行 */
+    .about-links {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 8px;
+    }
+    .about-link { justify-content: center; padding: 9px 4px; font-size: 12px; }
     .schedule-list {
         display: flex;
         flex-direction: row;
@@ -1401,6 +1468,8 @@ body {
 .el-message {
     background: var(--bg-raised) !important;
     border: 1px solid var(--border) !important;
+    /* 顶部消息气泡不拦截点击，可穿透操作下方界面 */
+    pointer-events: none !important;
 }
 .el-message__content { color: var(--text) !important; }
 .el-message-box {

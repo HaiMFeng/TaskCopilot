@@ -5,7 +5,7 @@ const {createApp, ref, reactive, computed, onMounted, onBeforeUnmount, nextTick}
 const {ElMessage, ElMessageBox} = ElementPlus;
 
 // 前端 JS 版本号（修改后请同步递增，便于辨识加载版本）
-const APP_JS_VERSION = '20260805.12';
+const APP_JS_VERSION = '20260805.13';
 
 /** 任务顶级字段（不放进 config，提交时提升到 payload 顶层） */
 const TOP_LEVEL_FIELDS = new Set(['command', 'workingDir', 'timeoutSeconds']);
@@ -311,7 +311,7 @@ createApp({
             {key: 'schedule', label: '日程表', shortLabel: '日程', icon: 'fa-solid fa-calendar-days'},
             {key: 'terminal', label: '终端', shortLabel: '终端', icon: 'fa-solid fa-terminal'},
             {key: 'monitor', label: '屏幕', shortLabel: '屏幕', icon: 'fa-solid fa-desktop'},
-            {key: 'files', label: '文件管理器', shortLabel: '文件', icon: 'fa-solid fa-folder'},
+            {key: 'about', label: '关于', shortLabel: '关于', icon: 'fa-solid fa-circle-info'},
         ];
         const mode = ref('dashboard');
         const modeRefs = {};
@@ -1224,6 +1224,22 @@ createApp({
                 fallbackCopy(text);
             }
         }
+        // 关于页版本号（无论是否开发模式始终可用，点击复制）
+        const htmlVer = ref(window.__APP_HTML_VERSION__ || '?');
+        const jsVer = ref(APP_JS_VERSION);
+        const aboutVersion = ref('HTML ' + htmlVer.value + '  JS ' + jsVer.value);
+        function copyVersion() {
+            const text = aboutVersion.value;
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(text).then(() => {
+                    ElMessage.success('已复制版本号：' + text);
+                }).catch(() => {
+                    fallbackCopy(text);
+                });
+            } else {
+                fallbackCopy(text);
+            }
+        }
         function fallbackCopy(text) {
             const ta = document.createElement('textarea');
             ta.value = text;
@@ -1272,6 +1288,8 @@ createApp({
             dashMemUsed, dashMemTotal, dashMemPercent,
             dashDiskFree, dashDiskTotal, dashDiskPercent,
             dashNetDown, dashNetUp, dashUptime, copyVersions,
+            // 关于
+            htmlVer, jsVer, aboutVersion, copyVersion,
             termRunning, termShell, termInput, termOutputRef,
             startTerminal, stopTerminal, sendTerminalCommand, sendTerminalInterrupt,
             taskTime, taskMinute,

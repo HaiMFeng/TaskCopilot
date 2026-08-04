@@ -500,13 +500,52 @@
             </div>
         </section>
 
-        <!-- ===== 文件管理器占位 ===== -->
-        <section v-show="mode === 'files'" class="mode-view">
-            <div class="placeholder-card">
-                <div class="placeholder-icon"><i class="fa-solid fa-folder-open"></i></div>
-                <h2>文件管理器</h2>
-                <p>该模块正在建设中，敬请期待。</p>
-                <p class="placeholder-sub">文件管理器将支持远程浏览与管理小主机上的文件。</p>
+        <!-- ===== 关于 ===== -->
+        <section v-show="mode === 'about'" class="mode-view about-view">
+            <div class="about-card">
+                <div class="about-logo"><i class="fa-solid fa-stopwatch"></i></div>
+                <h1 class="about-title">TaskCopilot</h1>
+                <p class="about-tagline">无屏小主机的定时任务调度与远程管理助手。</p>
+
+                <div class="about-row">
+                    <span class="about-label">作者</span>
+                    <span class="about-value">HaiMFeng（海明风）</span>
+                </div>
+                <div class="about-row">
+                    <span class="about-label">主页</span>
+                    <a class="about-value" href="https://github.com/HaiMFeng" target="_blank" rel="noopener">github.com/HaiMFeng</a>
+                </div>
+                <div class="about-row">
+                    <span class="about-label">邮箱</span>
+                    <a class="about-value" href="mailto:hai-m-feng@qq.com">hai-m-feng@qq.com</a>
+                </div>
+                <div class="about-row about-version-row" @click="copyVersion" title="点击复制版本号">
+                    <span class="about-label">版本</span>
+                    <span class="about-value about-version">
+                        <span class="ver-chip">HTML <b>{{ htmlVer }}</b></span>
+                        <span class="ver-sep">/</span>
+                        <span class="ver-chip">JS <b>{{ jsVer }}</b> <i class="fa-solid fa-copy about-copy"></i></span>
+                    </span>
+                </div>
+
+                <div class="about-links">
+                    <a class="about-link" href="https://github.com/HaiMFeng/TaskCopilot" target="_blank" rel="noopener">
+                        <i class="fa-solid fa-house"></i> 项目主页
+                    </a>
+                    <a class="about-link" href="https://github.com/HaiMFeng/TaskCopilot/blob/master/LICENSE" target="_blank" rel="noopener">
+                        <i class="fa-solid fa-scale-balanced"></i> MIT 协议
+                    </a>
+                    <a class="about-link" href="https://github.com/HaiMFeng/TaskCopilot/issues" target="_blank" rel="noopener">
+                        <i class="fa-solid fa-bug"></i> 反馈入口
+                    </a>
+                </div>
+
+                <div class="about-thanks">
+                    <div class="about-thanks-title">致谢</div>
+                    <p>感谢 <b>Vue 3</b>、<b>Element Plus</b>、<b>Font Awesome</b> 提供的优秀前端基础与图标资源；</p>
+                    <p>感谢 <b>Spring Boot</b>、<b>Spring Data JPA</b>、<b>H2</b>、<b>Lombok</b> 支撑稳健的后端与存储；</p>
+                    <p>感谢 <b>CodeBuddy</b>（腾讯 AI 编程助手）在本项目的界面重构、功能开发与文档整理中的协作。</p>
+                </div>
             </div>
         </section>
     </main>
@@ -544,8 +583,8 @@
     <el-dialog v-model="historyVisible" title="执行历史" width="720px" append-to-body>
         <pre class="result-output history-output">{{ historyText }}</pre>
     </el-dialog>
-    <!-- 版本标识：点击复制版本号（终端模式下隐藏，避免遮挡底部输入栏按钮） -->
-    <div class="version-badge" v-show="mode !== 'terminal'" @click="copyVersions" title="点击复制版本号">
+    <!-- 版本标识：开发调试用，默认隐藏（非删除） -->
+    <div class="version-badge" v-show="false" @click="copyVersions" title="点击复制版本号">
         <span>HTML <b id="htmlVer">--</b></span>
         <span>JS <b id="jsVer">--</b></span>
     </div>
@@ -555,7 +594,7 @@
 <script src="/vendor/index.full.min.js"></script>
 <script src="/vendor/dayjs.min.js"></script>
 <script src="/js/api.js"></script>
-<script>window.__APP_HTML_VERSION__ = '20260805.12';</script>
-<script src="/js/app.js?v=20260805.12"></script>
+<script>window.__APP_HTML_VERSION__ = '20260805.13';</script>
+<script src="/js/app.js?v=20260805.13"></script>
 </body>
 </html>

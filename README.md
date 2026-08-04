@@ -1,129 +1,165 @@
 # TaskCopilot
 
-在局域网内无屏小主机上运行的轻量级定时任务管理工具。通过浏览器即可管理「每日任务」的排期、执行与日志，支持按场景把任务分组到多个「日程表」中，且仅有一个日程表处于运行中。
+> 无屏小主机的定时任务调度与远程管理助手。
 
-> 当前版本聚焦**每日任务**模式；**立即任务**模式为占位（规划中的一次性并发执行能力）。
+TaskCopilot 是面向「无显示器小主机 / NAS / 软路由」等场景的轻量级任务调度与管理面板。
+通过网页即可集中管理定时任务、查看主机状态、远程操作终端、实时查看主机屏幕，无需接显示器或 SSH。
 
-## 特性
-- **日程表（Schedule）分组**：多个日程表，同一时间仅一个运行；切换运行日程表时其余自动停用。
-- **每日定时任务**：所有任务均按每日指定时间执行（调度维度），触发配置由后端 schema 驱动、前端动态渲染。
-- **六种任务类型（功能类别）**：
-  - **运行指令（RUN_COMMAND）**：执行 Shell/系统命令，支持命令内容、工作目录、超时。
-  - **打开应用（OPEN_APP）**：启动桌面程序（Windows `start` / macOS `open` / Linux `xdg-open`），路径支持手动输入+校验。
-  - **发送请求（HTTP_REQUEST）**：发起 HTTP 调用（GET/POST 等），适合健康检查、Webhook 场景。
-  - **结束进程（KILL_PROCESS）**：按进程名终止指定程序，支持精确/模糊匹配、正常/强制终止，可从运行中进程列表选择。
-  - **系统指令（SYSTEM_COMMAND）**：定时关机、重启、休眠、锁屏，支持延时执行。
-  - 每种类型拥有专属配置表单，切换类型时界面自动切换；预制类型旨在简化指令编写。
-- **左右分栏界面**：左栏任务列表（按触发时间排序、同时间任务可拖拽、启用开关），右栏选中任务详情编辑、立即执行与日志查看。
-- **新建任务弹窗**：不干扰主页面布局。
-- **全局暂停/恢复**：维护时一键冻结所有定时触发。
-- **低资源占用**：Spring 虚拟线程 + 信号量限流，调度线程池仅 2 线程。
-- **零前端构建**：Vue 3 + Element Plus + Font Awesome 以本地静态资源（`resources/static/vendor`、`webfonts`）引入，开箱即用、可离线；API 层已隔离，后续可平滑迁移到 Vue + Vite。
+---
 
-## 技术栈
-| 层 | 选型 |
-|----|------|
-| 后端 | Spring Boot 4.1.0 · JDK 21（虚拟线程）· Spring Data JPA · H2 · Jackson 3 |
+## ✨ 功能特性
+
+- **仪表盘**：实时展示主机名、CPU / 内存 / 磁盘 / 网络负载、运行时长、本机访问地址等。
+- **日程表（Schedule）**：将任务分组到多个日程表中，任一时刻仅一个日程表处于「启用」状态；
+  单击切换选中、双击启用、右键删除。支持「不启用」以暂停全部调度。
+- **任务管理**：
+  - 多种任务类型（应用启动、URL 请求、文件/脚本执行等），由后端 `TaskTypeService` 动态提供 schema。
+  - 启用 / 禁用切换、手动执行、拖拽排序、查看执行历史与日志。
+  - 配置项含路径校验（如可执行文件路径存在性检查）。
+- **终端**：网页内嵌 CMD / PowerShell 终端，支持启动 / 停止、命令输入、回车发送、Ctrl+C 中断，只读输出回显。
+- **屏幕查看**：通过 `java.awt.Robot` 截取主机屏幕，按可选清晰度（流畅 / 标准 / 清晰 / 原画）以 1 秒间隔轮询刷新；
+  进入页面自动开始、离开自动停止，支持 `java -jar` 无头环境（已关闭 Spring Boot 默认 headless）。
+- **关于**：项目简介、作者信息、版本号（点击复制）、项目主页、MIT 协议与反馈入口。
+- **移动端适配**：响应式布局，模式切换在移动端以选择框呈现；工具栏、图标风格 PC / 移动端统一。
+- **零前端构建**：Vue 3 + Element Plus + Font Awesome 以本地静态资源引入，开箱即用、可离线；API 层已隔离，后续可平滑迁移至 Vue 3 + Vite。
+
+---
+
+## 🧱 技术栈
+
+| 层 | 技术 |
+|---|---|
+| 后端 | Spring Boot 3、Spring MVC、Spring Data JPA、H2（文件型数据库）、Lombok |
+| 调度 | Spring `TaskScheduler` + `ScheduledTaskRegistrar`，基于 Cron 表达式 |
+| 主机信息 | OSHI（系统硬件信息）、`java.awt.Robot`（屏幕截图） |
 | 前端 | Vue 3 + Element Plus（经 `/vendor` 本地引入，无需 CDN/构建）+ Font Awesome 图标 |
 | 构建 | Maven（`./mvnw`） |
 
-## 快速开始
+---
+
+## 🚀 快速开始
 
 ### 环境要求
-- JDK 21+
-- Maven 3.9+（或直接使用仓库内的 `mvnw`）
+- JDK 17+
+- Maven 3.8+（或使用仓库内置 `mvnw`）
 
-### 运行
+### 构建与运行
 ```bash
-# 使用包装脚本（推荐，无需全局安装 Maven）
-./mvnw spring-boot:run
+# 1. 打包
+./mvnw clean package
+#   或 Windows：
+mvnw.cmd clean package
 
-# 或先打包再运行
-./mvnw clean package -DskipTests
+# 2. 运行（jar 方式，推荐用于无头小主机）
 java -jar target/TaskCopilot-0.0.1-SNAPSHOT.jar
 ```
-启动后访问：http://localhost:8080
 
-> H2 控制台默认开启：http://localhost:8080/h2-console （JDBC URL：`jdbc:h2:file:./data/taskcopilot`）
+启动后默认监听 `http://<主机IP>:8080`（端口见 `application.properties` 的 `server.port`）。
 
-### 配置项（`src/main/resources/application.properties`）
-| 配置 | 默认值 | 说明 |
-|------|--------|------|
-| `server.port` | `8080` | 监听端口 |
-| `server.address` | `0.0.0.0` | 监听地址（局域网） |
-| `taskcopilot.default-timeout-seconds` | `60` | 任务默认超时 |
-| `taskcopilot.max-concurrent-executions` | `5` | 并发执行上限 |
-| `taskcopilot.max-output-chars` | `20000` | 日志输出截断长度 |
-| `taskcopilot.log-retention-per-task` | `200` | 每任务保留日志条数 |
-| `taskcopilot.auto-start` | `true` | 启动即加载并调度任务 |
+> 屏幕查看功能依赖桌面图形环境。若以 `java -jar` 在无显示器环境运行，
+> 项目已在 `TaskCopilotApplication.main()` 与 `application.properties` 中显式关闭 headless，
+> 以便 Robot 可取屏。
 
-## 目录结构
+### 开发模式（IDE 运行）
+直接用 IDE 运行 `TaskCopilotApplication` 即可；无需额外参数。
+前端为静态资源，修改 `src/main/resources/static/**` 后刷新浏览器即可（已通过 `?v=` 版本号规避缓存）。
+
+---
+
+## 📡 HTTP API 一览
+
+基础前缀：`/api`
+
+### 系统 `SystemController`（`/api/system`）
+| 方法 | 路径 | 说明 |
+|---|---|---|
+| GET | `/info` | 基础信息（版本、主机名等） |
+| GET | `/dashboard` | 仪表盘聚合数据（CPU/内存/磁盘/网络/任务概览） |
+| GET | `/network` | 网卡与流量信息 |
+| GET | `/network-config` | 本机 IP、DNS、网关、链路速度 |
+| GET | `/scheduler` | 调度器状态（运行中 / 暂停） |
+| POST | `/scheduler/pause` | 暂停调度 |
+| POST | `/scheduler/resume` | 恢复调度 |
+| GET | `/processes` | 进程列表（可选过滤） |
+| POST | `/display-name` | 更新主机显示名 |
+| POST | `/check-path` | 校验文件路径是否存在 |
+
+### 日程表 `ScheduleController`（`/api/schedules`）
+| 方法 | 路径 | 说明 |
+|---|---|---|
+| GET | `/` | 列表（含每表任务数） |
+| GET | `/current` | 当前启用的日程表（`null` 表示未启用） |
+| GET | `/{id}` | 详情 |
+| POST | `/` | 新建 |
+| PUT | `/{id}` | 更新 |
+| POST | `/{id}/activate` | 启用该表（互斥，其余置为非启用） |
+| POST | `/deactivate` | 全部停用（对应「不启用」） |
+| DELETE | `/{id}` | 删除 |
+
+### 任务 `TaskController`（`/api/tasks`）
+| 方法 | 路径 | 说明 |
+|---|---|---|
+| GET | `/` | 列表（可按日程表过滤） |
+| GET | `/{id}` | 详情 |
+| POST | `/` | 新建 |
+| PUT | `/{id}` | 更新 |
+| DELETE | `/{id}` | 删除 |
+| PATCH | `/{id}/toggle` | 启用/禁用切换 |
+| POST | `/{id}/execute` | 立即执行 |
+| PUT | `/sort` | 批量更新排序 |
+| GET | `/{id}/logs` | 执行日志 |
+
+### 任务类型 `TaskTypeController`（`/api/task-types`）
+| 方法 | 路径 | 说明 |
+|---|---|---|
+| GET | `/` | 全部任务类型及其配置 schema |
+
+### 终端 `TerminalController`（`/api/terminal`）
+| 方法 | 路径 | 说明 |
+|---|---|---|
+| GET | `/state` | 终端运行状态 |
+| GET | `/output` | 历史输出片段 |
+| POST | `/start` | 启动终端（指定 shell：CMD / PowerShell） |
+| POST | `/stop` | 停止终端 |
+| POST | `/input` | 发送命令 |
+| POST | `/interrupt` | 发送中断（Ctrl+C） |
+
+### 屏幕 `ScreenController`（`/api/screen`）
+| 方法 | 路径 | 说明 |
+|---|---|---|
+| GET | `/?quality=0.5` | 返回 JPEG 截图（响应头 `X-Screen-Size` 携带分辨率）；服务不可用时返回 503 |
+
+---
+
+## 🗂 目录结构
+
 ```
-src/main/
-├── java/io/github/haimfeng/taskcopilot/
-│   ├── domain/          # 实体：Task、TaskLog、Schedule、ExecutionStatus
-│   ├── repository/      # JPA Repository
-│   ├── tasktype/        # 任务类型扩展点（TaskTypeHandler / Registry）
-│   ├── service/         # 业务：TaskService、ScheduleService、TaskScheduler、执行引擎
-│   ├── web/             # Controller、DTO、全局异常处理
-│   └── config/          # 调度器与属性配置
-└── resources/
-    ├── application.properties
-    └── static/          # 前端：index.html / css/app.css / js/api.js / js/app.js
+src/main/java/io/github/haimfeng/taskcopilot/
+├── TaskCopilotApplication.java      # 启动类（显式关闭 headless）
+├── config/                          # Spring 配置（调度、JPA 等）
+├── controller/  → web/              # HTTP 接口层（见上 API 一览）
+├── service/                        # 业务逻辑（调度、任务、终端、屏幕、日程表）
+├── model/                          # 实体与 DTO
+├── repository/                     # JPA 仓储
+└── scheduler/                      # 调度引导与执行
+
+src/main/resources/
+├── application.properties           # 端口、H2、headless=false 等
+└── static/                         # 前端（index.html / js / css / vendor / webfonts）
 ```
 
-## API 一览
-### 日程表
-| 方法 | 路径 | 说明 |
-|------|------|------|
-| GET | `/api/schedules` | 列表（含任务数） |
-| GET | `/api/schedules/current` | 当前运行中日程表（缺省自动建默认） |
-| POST | `/api/schedules` | 创建 |
-| PUT | `/api/schedules/{id}` | 更新 |
-| POST | `/api/schedules/{id}/activate` | 切换为运行中（互斥） |
-| DELETE | `/api/schedules/{id}` | 删除（级联删除其下任务及日志） |
+---
 
-### 任务
-| 方法 | 路径 | 说明 |
-|------|------|------|
-| GET | `/api/tasks?scheduleId=` | 列表（可按日程表过滤） |
-| POST | `/api/tasks` | 创建 |
-| PUT | `/api/tasks/{id}` | 更新 |
-| DELETE | `/api/tasks/{id}` | 删除 |
-| POST | `/api/tasks/{id}/execute` | 立即执行 |
-| PATCH | `/api/tasks/{id}/toggle?enabled=` | 启用/禁用 |
-| PUT | `/api/tasks/sort` | 批量排序 `{"orderedIds":[...]}` |
-| GET | `/api/tasks/{id}/logs?limit=50` | 日志 |
+## 📄 许可证
 
-### 系统 / 类型
-| 方法 | 路径 | 说明 |
-|------|------|------|
-| GET | `/api/task-types` | 任务类型及配置 schema |
-| GET | `/api/system/info` | 系统信息 |
-| GET | `/api/system/processes` | 运行中进程名列表 |
-| POST | `/api/system/check-path` | 校验应用路径 |
-| POST | `/api/system/scheduler/pause` | 全局暂停 |
-| POST | `/api/system/scheduler/resume` | 全局恢复 |
-
-## 扩展指引
-- **新增任务类型**：实现 `TaskTypeHandler` 接口（提供 `code`、`displayName`、`configSchema`、`validate`、`summary`、`execute`），用 `@Component` 注册即可。调度器、Service、前端均无需改动。
-- **新增日程表 / 任务属性**：修改对应 `domain` 实体与 DTO，JPA `ddl-auto=update` 会自动演进表结构（生产环境建议改用 Flyway）。
-
-## 路线图
-- **M1**：后端 CRUD + 每日定时调度 + 日志。
-- **M2**：日程表分组与互斥激活、拖拽排序、全局开关、系统信息、类型扩展示例。
-- **M3**：测试、文档、简单认证、Docker 支持（可选）。
-
-## 许可证
-本项目基于 **MIT License** 开源。详见仓库根目录的 [`LICENSE`](./LICENSE) 文件。
-> 个人项目，欢迎学习、使用与扩展功能；**请勿用于商业用途**。
+本项目基于 **MIT License** 开源，详见仓库根目录的 [`LICENSE`](./LICENSE) 文件。
 
 ## 致谢
 - **Vue 3** —— 渐进式前端框架，本项目 UI 的响应式基础。
 - **Element Plus** —— 基于 Vue 3 的组件库（消息提示、对话框、选择器等），开箱即用的桌面级体验。
-- **Font Awesome** —— 丰富的图标资源，为各界面提供一致的视觉标识（仪表盘、日程表、终端、屏幕、文件管理器等）。
-- **Spring Boot / Spring Data JPA / H2 / Lombok** —— 稳健的后端与持久化底座。
-- **CodeBuddy** —— 由腾讯开发的 AI 编程助手。本项目的界面重构、功能开发（屏幕监视、移动端适配、日程表互斥激活等）与文档整理均在 CodeBuddy 的协作下完成，特此感谢。
+- **Font Awesome** —— 丰富的图标资源，为各界面提供一致的视觉标识。
+- **Spring Boot / Spring Data JPA / H2 / Lombok / OSHI** —— 稳健的后端与主机信息底座。
+- **CodeBuddy** —— 由腾讯开发的 AI 编程助手。本项目的界面重构、功能开发（屏幕监视、移动端适配等）与文档整理均在 CodeBuddy 的协作下完成，特此感谢。
 
 ---
 ⏱ TaskCopilot · 让无屏小主机的定时任务管理更简单。

@@ -1301,6 +1301,8 @@ body {
     border: 1px solid var(--border) !important;
     border-radius: 8px !important;
     box-shadow: none !important;
+    outline: none !important;
+    -webkit-tap-highlight-color: transparent;
     padding: 8px 12px !important;
 }
 .el-input__inner {
@@ -1318,6 +1320,8 @@ body {
 .el-select__wrapper.is-focused,
 .el-textarea__inner:focus {
     border-color: var(--accent) !important;
+    box-shadow: none !important;
+    outline: none !important;
 }
 .el-textarea__inner,
 .el-select__placeholder {

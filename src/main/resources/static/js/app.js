@@ -5,7 +5,7 @@ const {createApp, ref, reactive, computed, onMounted, onBeforeUnmount, nextTick}
 const {ElMessage, ElMessageBox} = ElementPlus;
 
 // 前端 JS 版本号（修改后请同步递增，便于辨识加载版本）
-const APP_JS_VERSION = '20260804.3';
+const APP_JS_VERSION = '20260804.4';
 
 /** 任务顶级字段（不放进 config，提交时提升到 payload 顶层） */
 const TOP_LEVEL_FIELDS = new Set(['command', 'workingDir', 'timeoutSeconds']);
@@ -42,6 +42,8 @@ const ConfigFields = {
     props: {
         schema: {type: Array, default: () => []},
         model: {type: Object, default: () => ({})},
+        value: {type: Object, default: () => ({})},  // 兼容别名
+        verifiedMap: {type: Object, default: () => ({})}, // 校验通过状态（与父级共享）
     },
     emits: ['update'],
     setup(props, {emit}) {
@@ -55,169 +57,101 @@ const ConfigFields = {
         };
         const set = (field, v) => emit('update', field.name, v);
 
-        // ----- 应用路径拖放区（appFile 类型） -----
-        const dragOver = ref(false);
-        const checking = ref(false);
-        const checkResult = ref(null); // {exists, isFile, extension, ok}
-        const dropHint = ref(''); // 拖放失败时的提示
+        // ----- 应用路径输入框（appFile 类型） -----
+        // 校验状态：每个 appFile 字段维护独立的校验结果
+        const checking = ref(false);           // 校验中（按钮显示 loading）
+        const checkResult = reactive({});      // { [fieldName]: {exists, isFile, extension, ok} }
+        const verified = reactive({});         // { [fieldName]: boolean } 是否通过校验
 
-        const fileName = (field) => {
-            const p = val(field);
+        /** 清洗路径：去除首尾空白与包裹的引号 */
+        function cleanPath(raw) {
+            if (!raw) return '';
+            let p = String(raw).trim();
+            // 去除成对引号（" 或 '）
+            p = p.replace(/^["']+/, '').replace(/["']+$/, '');
+            // 规范化反斜杠
+            return p.trim();
+        }
+
+        /** 从路径提取文件名（用于校验成功标签展示） */
+        function fileBaseName(field) {
+            const p = cleanPath(val(field));
             if (!p) return '';
             const idx = Math.max(p.lastIndexOf('\\'), p.lastIndexOf('/'));
             return idx >= 0 ? p.substring(idx + 1) : p;
-        };
-
-        // 从 dataTransfer 解析本地真实路径（浏览器拖入本地文件时携带 file:// URI）
-        function extractLocalPath(dt) {
-            // 1) 直接读取常见类型
-            for (const type of ['text/uri-list', 'text/plain', 'text/html']) {
-                let uri = '';
-                try { uri = dt.getData(type) || ''; } catch (e) { /* 某些浏览器禁止读取 */ }
-                const p = uriToFile(uri);
-                if (p) return p;
-            }
-            // 2) 遍历 items（部分浏览器 .lnk 仅在此处暴露 file://）
-            if (dt.items) {
-                for (const item of dt.items) {
-                    if (!item.type) continue;
-                    const p = uriToFileSync(item);
-                    if (p) return p;
-                }
-            }
-            return '';
-        }
-        function uriToFile(uri) {
-            if (!uri) return '';
-            const first = uri.split(/\r?\n/)[0].trim();
-            // text/html 中可能内嵌 <a href="file://...">
-            let target = first;
-            if (!target.startsWith('file://')) {
-                const m = uri.match(/file:\/\/[^\s"'<>]+/);
-                if (m) target = m[0];
-            }
-            if (target.startsWith('file://')) {
-                let p = target.slice('file://'.length);
-                if (p.startsWith('/') && /^[A-Za-z]:/.test(p.slice(1))) p = p.slice(1);
-                try { p = decodeURIComponent(p); } catch (e) {}
-                return p;
-            }
-            return '';
-        }
-        function uriToFileSync(item) {
-            // 仅同步读取 text/* 类型
-            if (!item.type || item.type.indexOf('text/') !== 0) return '';
-            let out = '';
-            try {
-                item.getAsString((s) => { out = s; });
-            } catch (e) { return ''; }
-            // getAsString 是异步的，这里无法等待，直接返回空由步骤1兜底
-            return '';
         }
 
-        async function verifyPath(field, path) {
-            if (!path) { checkResult.value = null; return; }
+        /** 手动校验指定字段的当前路径 */
+        async function verifyField(field) {
+            const path = cleanPath(val(field));
+            if (!path) {
+                checkResult[field.name] = null;
+                verified[field.name] = false;
+                props.verifiedMap[field.name] = false;
+                return;
+            }
             checking.value = true;
+            const start = Date.now();
             try {
-                checkResult.value = await API.checkPath(path);
+                const res = await API.checkPath(path);
+                checkResult[field.name] = res;
+                const ok = !!(res && res.ok);
+                verified[field.name] = ok;
+                props.verifiedMap[field.name] = ok;
             } catch (e) {
-                checkResult.value = null;
+                checkResult[field.name] = null;
+                verified[field.name] = false;
+                props.verifiedMap[field.name] = false;
             } finally {
+                // 保证加载圈至少显示 400ms，避免网络过快造成的闪烁/抽搐
+                const elapsed = Date.now() - start;
+                if (elapsed < 400) {
+                    await new Promise((r) => setTimeout(r, 400 - elapsed));
+                }
                 checking.value = false;
             }
         }
 
-        function readItemString(item) {
-            return new Promise((resolve) => {
-                try {
-                    item.getAsString((s) => resolve(s));
-                } catch (e) { resolve(''); }
-            });
-        }
-        async function onDrop(field, e) {
-            dragOver.value = false;
-            let path = extractLocalPath(e.dataTransfer);
-            // 兜底：遍历 items 异步读取（某些浏览器 .lnk 仅在此处暴露 file://）
-            if (!path && e.dataTransfer.items) {
-                for (const item of e.dataTransfer.items) {
-                    if (!item.type || item.type.indexOf('text/') !== 0) continue;
-                    const s = await readItemString(item);
-                    const p = uriToFile(s);
-                    if (p) { path = p; break; }
-                }
-            }
-            if (path) {
-                set(field, path);
-                verifyPath(field, path);
-                dropHint.value = '';
-            } else {
-                // 浏览器安全限制：无法读取拖入文件的本地路径（多见于 .lnk 快捷方式）
-                dropHint.value = '无法自动读取该文件的本地路径，请手动在下方填写完整路径（如 C:\\...\\app.exe）';
-                // 聚焦路径输入框
-                nextTick(() => {
-                    const inp = e.currentTarget && e.currentTarget.querySelector && e.currentTarget.querySelector('.dz-path input');
-                    if (inp) inp.focus();
-                });
-            }
-        }
-        function onFilePick(field, e) {
-            const f = e.target.files && e.target.files[0];
-            if (!f) return;
-            // 浏览器无法暴露完整路径，仅以文件名提示用户补全
-            set(field, f.name);
-            checkResult.value = {exists: false, isFile: true, extension: (f.name.split('.').pop() || '').toLowerCase(), ok: false};
-            dropHint.value = '已选择「' + f.name + '」，但浏览器无法读取其完整路径。请在下方填写完整路径，或在资源管理器 Shift+右键「复制为路径」后回到此处 Ctrl+V 粘贴';
-            e.target.value = '';
-        }
-        function openPicker(field, e) {
-            const input = e.currentTarget.querySelector('.dz-input');
-            if (input) input.click();
-        }
-        // 从剪贴板解析本地路径（最可靠的方式：资源管理器 Shift+右键"复制为路径"）
-        async function onPaste(field, e) {
-            let text = '';
-            try { text = (e.clipboardData || window.clipboardData).getData('text'); } catch (err) {}
-            if (!text) return;
-            const p = extractPathFromText(text);
-            if (p) {
-                set(field, p);
-                verifyPath(field, p);
-                dropHint.value = '';
-            } else {
-                dropHint.value = '剪贴板内容不是有效的文件路径，请使用资源管理器 Shift+右键「复制为路径」后粘贴';
-            }
-        }
-        function extractPathFromText(text) {
-            if (!text) return '';
-            // file:// 形式
-            const m = text.match(/file:\/\/\/?([A-Za-z]:[^\s"']*)/);
-            if (m) {
-                let p = m[1];
-                try { p = decodeURIComponent(p); } catch (e) {}
-                return p;
-            }
-            // 直接路径：C:\... 或盘符形式
-            const m2 = text.match(/([A-Za-z]:\\?[^\s"']*)/);
-            if (m2) return m2[1].replace(/\//g, '\\');
-            return '';
-        }
-
-        // model 被外部替换/加载（如切换任务）时，对 appFile 字段重新校验
-        const { watch, onMounted } = Vue;
-        function verifyAllAppFiles() {
-            (props.schema || []).forEach((f) => {
-                if (f.type === 'appFile') verifyPath(f, val(f));
-            });
-        }
-        watch(() => props.model, () => verifyAllAppFiles(), {deep: true});
-        onMounted(verifyAllAppFiles);
+        /** 输入框内容变动：更新模型、重置该校验状态 */
         function onPathInput(field, v) {
             set(field, v);
-            verifyPath(field, v);
+            checkResult[field.name] = null;
+            verified[field.name] = false;
+            props.verifiedMap[field.name] = false;
         }
 
-        return {val, set, dragOver, checking, checkResult, fileName,
-                onDrop, onFilePick, onPathInput, openPicker, onPaste};
+        /** 对所有已有值的 appFile 字段自动校验一次（选中任务/切换类型时调用） */
+        async function autoVerifyAll() {
+            const fields = (props.schema || []).filter((f) => f.type === 'appFile');
+            for (const f of fields) {
+                const path = cleanPath(val(f));
+                checkResult[f.name] = null;
+                verified[f.name] = false;
+                props.verifiedMap[f.name] = false;
+                if (path) {
+                    await verifyField(f);
+                }
+            }
+        }
+
+        // 模型被整体替换（选中任务、切换类型）时自动校验一次；
+        // 注意 deep:false —— 手动输入只改属性不触发，避免与 onPathInput 冲突
+        const { watch, onMounted, nextTick } = Vue;
+        watch(() => props.model, () => {
+            nextTick(() => autoVerifyAll());
+        }, {deep: false});
+
+        // schema 变化（任务类型切换后字段变了）同样自动校验
+        watch(() => props.schema, () => {
+            nextTick(() => autoVerifyAll());
+        }, {deep: false});
+
+        onMounted(() => {
+            nextTick(() => autoVerifyAll());
+        });
+
+        return {val, set, checking, checkResult, verified,
+                verifyField, onPathInput, cleanPath, fileBaseName, autoVerifyAll};
     },
     template: `
         <div class="config-fields">
@@ -269,39 +203,27 @@ const ConfigFields = {
                           @update:model-value="v => set(f, v)"/>
 
                 <template v-else-if="f.type === 'appFile'">
-                    <div class="dropzone"
-                         :class="{ 'is-over': dragOver, 'is-set': !!fileName(f) }"
-                         @dragover.prevent="dragOver = true"
-                         @dragleave.prevent="dragOver = false"
-                         @drop.prevent="onDrop(f, $event)"
-                         @paste.prevent="onPaste(f, $event)"
-                         @click="openPicker(f, $event)">
-                        <input type="file" class="dz-input" accept=".exe,.lnk,.bat,.cmd" @change="onFilePick(f, $event)">
-                        <div class="dz-inner">
-                            <div class="dz-icon" :class="{ 'is-set': !!fileName(f) }">
-                                <span v-if="!fileName(f)">⬚</span>
-                                <span v-else>🗎</span>
-                            </div>
-                            <div class="dz-text">
-                                <template v-if="!fileName(f)">
-                                    <div class="dz-title">拖入应用程序</div>
-                                    <div class="dz-sub">.exe / .lnk，或点击选择；也可复制路径后在此 Ctrl+V 粘贴</div>
-                                </template>
-                                <template v-else>
-                                    <div class="dz-filename">{{ fileName(f) }}</div>
-                                    <div class="dz-state" v-if="checking">校验中…</div>
-                                    <div class="dz-state ok" v-else-if="checkResult && checkResult.ok">✓ 路径有效</div>
-                                    <div class="dz-state bad" v-else-if="checkResult && !checkResult.ok">⚠ 路径不存在或不是文件</div>
-                                    <div class="dz-state" v-else>已选择</div>
-                                </template>
-                            </div>
-                        </div>
+                    <div class="path-row">
+                        <el-input :model-value="val(f)"
+                                  :placeholder="f.help || '请输入应用路径，如 C:/Program Files/xxx/app.exe'"
+                                  @update:model-value="v => onPathInput(f, v)"/>
+                        <transition name="slide">
+                            <el-button v-if="val(f) && verified[f.name] !== true"
+                                       class="path-verify-btn"
+                                       :loading="checking"
+                                       @click="verifyField(f)">校验</el-button>
+                        </transition>
                     </div>
-                    <el-input class="dz-path"
-                              :model-value="val(f)"
-                              placeholder="或手动填写完整路径，例如 C:\Program Files\App\app.exe"
-                              @update:model-value="v => onPathInput(f, v)"/>
-                    <div class="dz-hint" v-if="dropHint">{{ dropHint }}</div>
+                    <transition name="fade">
+                        <div class="dz-check" v-if="val(f) && checkResult[f.name]">
+                            <el-tag v-if="checkResult[f.name].ok" type="success" size="small">
+                                ✓ 已找到 {{ fileBaseName(f) }}
+                            </el-tag>
+                            <el-tag v-else type="danger" size="small">
+                                ✗ {{ checkResult[f.name].exists ? (checkResult[f.name].isFile ? '不是文件' : '不是文件夹') : '路径不存在' }}
+                            </el-tag>
+                        </div>
+                    </transition>
                 </template>
 
                 <div v-if="f.help && f.type !== 'text' && f.type !== 'textarea' && f.type !== 'appFile'" class="field-help">{{ f.help }}</div>
@@ -359,6 +281,10 @@ createApp({
         const form = reactive({id: null, name: '', typeCode: '', remark: '', config: {}});
         const createForm = reactive({name: '', typeCode: '', remark: '', config: {}});
 
+        // appFile 字段的校验通过状态（与 ConfigFields 子组件共享）
+        const appFileVerified = reactive({});       // 详情表单
+        const createFileVerified = reactive({});    // 新建表单
+
         const schemaOf = (typeCode) => {
             const t = taskTypes.value.find((x) => x.typeCode === typeCode);
             return (t && t.configSchema) ? t.configSchema : [];
@@ -375,6 +301,7 @@ createApp({
         }
         function onCreateTypeChange() {
             createForm.config = buildModel(createSchema.value, createForm.config);
+            Object.keys(createFileVerified).forEach((k) => { delete createFileVerified[k]; });
         }
 
         /* ---------------- 派生显示 ---------------- */
@@ -522,6 +449,8 @@ createApp({
                 timeoutSeconds: task.timeoutSeconds,
             });
             form.config = buildModel(schemaOf(task.typeCode), merged);
+            // 载入新任务时重置应用路径校验状态，需用户重新校验方可保存
+            Object.keys(appFileVerified).forEach((k) => { delete appFileVerified[k]; });
         }
 
         function selectTask(id) {
@@ -557,12 +486,21 @@ createApp({
         function buildPayload(src, schema) {
             const {config, top} = splitPayload(schema, src.config);
             const wd = top.workingDir;
+            // 清洗 appFile 字段中的路径（去除引号/空白），保证提交到后端的是干净路径
+            const cleanedConfig = {...config};
+            (schema || []).forEach((f) => {
+                if (f.type === 'appFile' && cleanedConfig[f.name] != null) {
+                    let p = String(cleanedConfig[f.name]).trim();
+                    p = p.replace(/^["']+/, '').replace(/["']+$/, '').trim();
+                    cleanedConfig[f.name] = p;
+                }
+            });
             return {
                 name: (src.name || '').trim(),
                 command: top.command != null ? top.command : '',
                 workingDir: (typeof wd === 'string' && wd.trim() !== '') ? wd.trim() : null,
                 typeCode: src.typeCode,
-                config,
+                config: cleanedConfig,
                 timeoutSeconds: (top.timeoutSeconds != null && top.timeoutSeconds !== '')
                     ? Number(top.timeoutSeconds) : null,
                 remark: (src.remark || '').trim() || null,
@@ -570,9 +508,20 @@ createApp({
             };
         }
 
+        /** 检查某 schema 下所有 appFile 字段是否都已校验通过 */
+        function allAppFilesVerified(schema, verifiedMap) {
+            const fields = (schema || []).filter((f) => f.type === 'appFile');
+            if (fields.length === 0) return true;
+            return fields.every((f) => verifiedMap[f.name] === true);
+        }
+
         async function _doSave() {
             if (!form.name.trim()) {
                 ElMessage.error('任务名称不能为空');
+                return false;
+            }
+            if (!allAppFilesVerified(detailSchema.value, appFileVerified)) {
+                ElMessage.error('请先校验应用路径，路径合法后方可保存');
                 return false;
             }
             saving.value = true;
@@ -677,12 +626,17 @@ createApp({
             createForm.remark = '';
             createForm.typeCode = taskTypes.value.length ? taskTypes.value[0].typeCode : '';
             createForm.config = buildModel(schemaOf(createForm.typeCode), {});
+            Object.keys(createFileVerified).forEach((k) => { delete createFileVerified[k]; });
             createVisible.value = true;
         }
 
         async function submitCreate() {
             if (!createForm.name.trim()) {
                 ElMessage.error('任务名称不能为空');
+                return;
+            }
+            if (!allAppFilesVerified(createSchema.value, createFileVerified)) {
+                ElMessage.error('请先校验应用路径，路径合法后方可创建');
                 return;
             }
             creating.value = true;
@@ -786,6 +740,7 @@ createApp({
             schedules, currentScheduleId, currentScheduleName,
             tasks, selectedTaskId, selectedTask, taskTypes,
             form, createForm, detailSchema, createSchema,
+            appFileVerified, createFileVerified,
             onDetailFieldUpdate, onCreateFieldUpdate, onTypeChange, onCreateTypeChange,
             saving, running, creating,
             createVisible, historyVisible, historyText, resultOutput,

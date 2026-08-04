@@ -1,6 +1,8 @@
 package io.github.haimfeng.taskcopilot.web;
 
+import io.github.haimfeng.taskcopilot.domain.AppConfig;
 import io.github.haimfeng.taskcopilot.domain.Schedule;
+import io.github.haimfeng.taskcopilot.repository.AppConfigRepository;
 import io.github.haimfeng.taskcopilot.repository.ScheduleRepository;
 import io.github.haimfeng.taskcopilot.repository.TaskRepository;
 import io.github.haimfeng.taskcopilot.service.TaskScheduler;
@@ -29,6 +31,7 @@ public class SystemController {
     private final TaskScheduler taskScheduler;
     private final TaskRepository taskRepository;
     private final ScheduleRepository scheduleRepository;
+    private final AppConfigRepository appConfigRepository;
 
     @Value("${server.port:8080}")
     private int serverPort;
@@ -36,9 +39,24 @@ public class SystemController {
     @Value("${server.address:0.0.0.0}")
     private String serverAddress;
 
-    // 网络速率缓存（后台异步更新，避免每次请求阻塞等待 PowerShell）
+    private final org.springframework.core.env.Environment env;
+
+    // 网络速率缓存
     private static volatile long cachedNetRx = 0;
     private static volatile long cachedNetTx = 0;
+
+    // 仪表盘显示名缓存（DB 中 key=displayName）
+    private volatile String cachedDisplayName = null;
+
+    private String getDisplayName() {
+        if (cachedDisplayName != null) return cachedDisplayName;
+        AppConfig cfg = appConfigRepository.findById("displayName").orElse(null);
+        if (cfg != null && !cfg.getValue().isBlank()) {
+            cachedDisplayName = cfg.getValue();
+            return cachedDisplayName;
+        }
+        return env.getProperty("taskcopilot.display-name", "USER");
+    }
 
     static {
         Thread updater = new Thread(() -> {
@@ -57,10 +75,14 @@ public class SystemController {
 
     public SystemController(TaskScheduler taskScheduler,
                             TaskRepository taskRepository,
-                            ScheduleRepository scheduleRepository) {
+                            ScheduleRepository scheduleRepository,
+                            AppConfigRepository appConfigRepository,
+                            org.springframework.core.env.Environment env) {
         this.taskScheduler = taskScheduler;
         this.taskRepository = taskRepository;
         this.scheduleRepository = scheduleRepository;
+        this.appConfigRepository = appConfigRepository;
+        this.env = env;
     }
 
     /**
@@ -81,6 +103,7 @@ public class SystemController {
         info.put("javaVersion", System.getProperty("java.version"));
         info.put("availableProcessors", runtime.availableProcessors());
         info.put("hostname", safeHostname());
+        info.put("displayName", getDisplayName());
         info.put("serverPort", serverPort);
         info.put("serverAddress", serverAddress);
         info.put("uptimeSeconds", Duration.ofMillis(
@@ -399,6 +422,19 @@ public class SystemController {
                 .distinct()
                 .sorted(Comparator.comparing(m -> m.get("name").toLowerCase()))
                 .toList();
+    }
+
+    /**
+     * 更新仪表盘显示名（持久化到数据库 app_config 表）。
+     */
+    @org.springframework.transaction.annotation.Transactional
+    @PostMapping("/display-name")
+    public Map<String, String> updateDisplayName(@org.springframework.web.bind.annotation.RequestBody Map<String, String> body) {
+        String name = body.getOrDefault("name", "").trim();
+        if (name.isEmpty()) name = "USER";
+        appConfigRepository.save(new AppConfig("displayName", name));
+        cachedDisplayName = name;
+        return Map.of("name", name);
     }
 
     /**

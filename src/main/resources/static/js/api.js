@@ -49,6 +49,7 @@ const API = (() => {
         dashboard: () => request('GET', '/system/dashboard'),
         networkInfo: () => request('GET', '/system/network'),
         networkConfig: () => request('GET', '/system/network-config'),
+        updateDisplayName: (name) => request('POST', '/system/display-name', {name}),
         pauseScheduler: () => request('POST', '/system/scheduler/pause'),
         resumeScheduler: () => request('POST', '/system/scheduler/resume'),
         checkPath: (path) => request('POST', '/system/check-path', {path}),

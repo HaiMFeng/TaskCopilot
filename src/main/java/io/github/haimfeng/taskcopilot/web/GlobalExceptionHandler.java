@@ -8,6 +8,7 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.time.Instant;
 import java.util.LinkedHashMap;
@@ -28,6 +29,12 @@ public class GlobalExceptionHandler {
                 .map(FieldError::getDefaultMessage)
                 .collect(Collectors.joining("；"));
         return build(HttpStatus.BAD_REQUEST, message.isBlank() ? "参数校验失败" : message);
+    }
+
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<Map<String, Object>> handleNoResource(NoResourceFoundException e) {
+        // 浏览器自动请求的静态资源（.map, .well-known 等），直接返回 404，不打日志
+        return build(HttpStatus.NOT_FOUND, "资源不存在");
     }
 
     @ExceptionHandler(IllegalArgumentException.class)

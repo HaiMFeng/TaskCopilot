@@ -5,7 +5,7 @@ const {createApp, ref, reactive, computed, onMounted, onBeforeUnmount, nextTick}
 const {ElMessage, ElMessageBox} = ElementPlus;
 
 // 前端 JS 版本号（修改后请同步递增，便于辨识加载版本）
-const APP_JS_VERSION = '20260804.12';
+const APP_JS_VERSION = '20260804.13';
 
 /** 任务顶级字段（不放进 config，提交时提升到 payload 顶层） */
 const TOP_LEVEL_FIELDS = new Set(['command', 'workingDir', 'timeoutSeconds']);
@@ -365,6 +365,30 @@ createApp({
             dashDate.value = now.format('YYYY-MM-DD dddd');
         }
 
+        // 可编辑用户名，默认 USER，存服务端
+        const dashHostName = ref('USER');
+        const editingHost = ref(false);
+        const hostInput = ref(null);
+        function startEditHost() {
+            editingHost.value = true;
+            nextTick(() => {
+                const el = hostInput.value;
+                if (el) { el.focus(); el.select(); }
+            });
+        }
+        async function finishEditHost() {
+            const val = dashHostName.value.trim();
+            if (!val) dashHostName.value = 'USER';
+            const nameToSave = dashHostName.value;
+            editingHost.value = false;
+            try {
+                await API.updateDisplayName(nameToSave);
+                dashHostName.value = nameToSave; // 确保不被轮询覆盖
+            } catch (e) {
+                ElMessage.error('保存失败');
+            }
+        }
+
         const dashMemUsed = computed(() => {
             const mb = dashInfo.value.usedPhysMemMb;
             if (mb == null) return '—';
@@ -421,6 +445,7 @@ createApp({
                 dashNetUp.value = formatBytesPerSec(info.netTxBytesPerSec || 0);
 
                 dashInfo.value = info;
+                if (info.displayName && !editingHost.value) dashHostName.value = info.displayName;
                 dashDashboard.value = db;
                 dashNetworks.value = net || [];
                 dashNetConfig.value = netCfg || {};
@@ -1046,6 +1071,7 @@ createApp({
             dragIndex, onDragStart, onDragOver, onDragEnd, canDrag,
             // 仪表盘
             dashInfo, dashDashboard, dashNetworks, dashNetConfig, dashTime, dashDate,
+            dashHostName, editingHost, hostInput, startEditHost, finishEditHost,
             dashMemUsed, dashMemTotal, dashMemPercent,
             dashDiskFree, dashDiskTotal, dashDiskPercent,
             dashNetDown, dashNetUp, dashUptime, copyVersions,

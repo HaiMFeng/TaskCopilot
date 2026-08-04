@@ -264,7 +264,17 @@
                     <div class="dash-date">{{ dashDate }}</div>
                 </div>
                 <div class="dash-host-info">
-                    <div class="dash-host">{{ dashInfo.hostname || '—' }}</div>
+                    <div class="dash-host" :class="{ editing: editingHost }" @click.stop="startEditHost">
+                        <template v-if="!editingHost">{{ dashHostName }}</template>
+                        <input v-else
+                               ref="hostInput"
+                               v-model="dashHostName"
+                               class="dash-host-input"
+                               maxlength="30"
+                               @keydown.enter="finishEditHost"
+                               @blur="finishEditHost"
+                               @click.stop />
+                    </div>
                     <div class="dash-ipport" v-if="dashNetConfig.localIp">
                         {{ dashNetConfig.localIp }}:{{ dashInfo.serverPort || '—' }}
                     </div>
@@ -458,7 +468,7 @@
 <script src="/vendor/index.full.min.js"></script>
 <script src="/vendor/dayjs.min.js"></script>
 <script src="/js/api.js"></script>
-<script>window.__APP_HTML_VERSION__ = '20260804.12';</script>
-<script src="/js/app.js?v=20260804.12"></script>
+<script>window.__APP_HTML_VERSION__ = '20260804.13';</script>
+<script src="/js/app.js?v=20260804.13"></script>
 </body>
 </html>

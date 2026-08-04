@@ -10,6 +10,20 @@
 </head>
 <body>
 <div id="app" v-cloak>
+    <!-- 加载遮罩：数据未就绪时覆盖整个页面 -->
+    <transition name="fade">
+        <div v-if="loading" class="app-loader">
+            <div class="loader-content">
+                <div class="loader-icon">
+                    <span class="loader-logo">⏱</span>
+                    <div class="loader-shine"></div>
+                </div>
+                <h1 class="loader-title">TaskCopilot</h1>
+                <p class="loader-sub">正在加载...</p>
+            </div>
+        </div>
+    </transition>
+
     <header class="topbar">
         <div class="brand">
             <span class="logo">⏱</span>
@@ -442,7 +456,7 @@
 <script src="/vendor/index.full.min.js"></script>
 <script src="/vendor/dayjs.min.js"></script>
 <script src="/js/api.js"></script>
-<script>window.__APP_HTML_VERSION__ = '20260804.9';</script>
-<script src="/js/app.js?v=20260804.9"></script>
+<script>window.__APP_HTML_VERSION__ = '20260804.10';</script>
+<script src="/js/app.js?v=20260804.10"></script>
 </body>
 </html>

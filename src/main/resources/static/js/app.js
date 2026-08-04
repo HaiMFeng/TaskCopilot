@@ -5,7 +5,7 @@ const {createApp, ref, reactive, computed, onMounted, onBeforeUnmount, nextTick}
 const {ElMessage, ElMessageBox} = ElementPlus;
 
 // 前端 JS 版本号（修改后请同步递增，便于辨识加载版本）
-const APP_JS_VERSION = '20260804.4';
+const APP_JS_VERSION = '20260804.10';
 
 /** 任务顶级字段（不放进 config，提交时提升到 payload 顶层） */
 const TOP_LEVEL_FIELDS = new Set(['command', 'workingDir', 'timeoutSeconds']);
@@ -345,6 +345,9 @@ createApp({
         function closeMobileDetail() {
             showMobileDetail.value = false;
         }
+
+        /* ---------------- 加载状态 ---------------- */
+        const loading = ref(true);
 
         /* ---------------- 仪表盘 ---------------- */
         const dashInfo = ref({});
@@ -924,6 +927,12 @@ createApp({
             nextTick(moveThumb);
             window.addEventListener('resize', moveThumb);
 
+            // 仪表盘第一时间启动，不等待其他数据加载
+            _tickDashTime();
+            timers.push(setInterval(_tickDashTime, 1000));
+            const dashReady = refreshDashboard(); // 不阻塞，但记住 Promise
+            timers.push(setInterval(refreshDashboard, 3000));
+
             try {
                 taskTypes.value = await API.taskTypes();
             } catch (e) {
@@ -944,17 +953,9 @@ createApp({
             timers.push(setInterval(loadSchedulerState, 15000));
             timers.push(setInterval(pollTasks, 8000));
 
-            // 仪表盘：启动时间 + 首次拉取 + 持续轮询
-            _tickDashTime();
-            timers.push(setInterval(_tickDashTime, 1000));
-            await refreshDashboard();
-            timers.push(setInterval(refreshDashboard, 3000));
-
-            // 填充右下角版本标识
-            const htmlVer = document.getElementById('htmlVer');
-            const jsVer = document.getElementById('jsVer');
-            if (htmlVer) htmlVer.textContent = window.__APP_HTML_VERSION__ || '?';
-            if (jsVer) jsVer.textContent = APP_JS_VERSION;
+            // 等待仪表盘首次数据就绪后再关闭遮罩
+            try { await dashReady; } catch (e) { /* 即使失败也继续 */ }
+            loading.value = false;
         });
 
         function copyVersions() {
@@ -995,6 +996,7 @@ createApp({
         });
 
         return {
+            loading,
             modes, mode, thumbStyle, setModeRef, switchMode,
             schedules, currentScheduleId, currentScheduleName,
             tasks, selectedTaskId, selectedTask, taskTypes,

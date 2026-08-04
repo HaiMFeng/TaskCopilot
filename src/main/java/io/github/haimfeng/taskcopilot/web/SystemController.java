@@ -36,6 +36,25 @@ public class SystemController {
     @Value("${server.address:0.0.0.0}")
     private String serverAddress;
 
+    // 网络速率缓存（后台异步更新，避免每次请求阻塞等待 PowerShell）
+    private static volatile long cachedNetRx = 0;
+    private static volatile long cachedNetTx = 0;
+
+    static {
+        Thread updater = new Thread(() -> {
+            while (true) {
+                try {
+                    long[] rate = readNetworkRateRaw();
+                    cachedNetRx = rate[0];
+                    cachedNetTx = rate[1];
+                } catch (Exception ignored) {}
+                try { Thread.sleep(3000); } catch (InterruptedException e) { break; }
+            }
+        }, "net-rate-updater");
+        updater.setDaemon(true);
+        updater.start();
+    }
+
     public SystemController(TaskScheduler taskScheduler,
                             TaskRepository taskRepository,
                             ScheduleRepository scheduleRepository) {
@@ -89,10 +108,9 @@ public class SystemController {
         info.put("diskFreeGb", root.getUsableSpace() / 1024 / 1024 / 1024);
         info.put("diskTotalGb", root.getTotalSpace() / 1024 / 1024 / 1024);
 
-        // 网络速率（Bytes/sec，通过 typeperf 直接获取瞬时速率）
-        long[] net = readNetworkRate();
-        info.put("netRxBytesPerSec", net[0]);
-        info.put("netTxBytesPerSec", net[1]);
+        // 网络速率：首次采样返回 0，后续通过后台线程异步更新
+        info.put("netRxBytesPerSec", cachedNetRx);
+        info.put("netTxBytesPerSec", cachedNetTx);
 
         // 调度器
         info.put("schedulerPaused", taskScheduler.isGloballyPaused());
@@ -205,11 +223,26 @@ public class SystemController {
         return list;
     }
 
+    // 网络配置缓存（变化极慢，30 秒刷新一次即可）
+    private volatile Map<String, Object> cachedNetworkConfig = null;
+    private volatile long networkConfigCacheTime = 0;
+
     /**
      * 本机网络配置：首选 IPv4、DNS 服务器、网关、链路速度。
      */
     @GetMapping("/network-config")
     public Map<String, Object> networkConfig() {
+        long now = System.currentTimeMillis();
+        if (cachedNetworkConfig != null && (now - networkConfigCacheTime) < 30_000) {
+            return cachedNetworkConfig;
+        }
+        Map<String, Object> cfg = buildNetworkConfig();
+        cachedNetworkConfig = cfg;
+        networkConfigCacheTime = now;
+        return cfg;
+    }
+
+    private Map<String, Object> buildNetworkConfig() {
         Map<String, Object> config = new LinkedHashMap<>();
         config.put("dns", new ArrayList<String>());
         config.put("gateway", "");
@@ -409,7 +442,7 @@ public class SystemController {
      * 读取网络速率（Bytes/sec）。
      * Windows 通过 typeperf 获取瞬时速率，Linux 通过 /proc/net/dev 差值计算。
      */
-    private static long[] readNetworkRate() {
+    private static long[] readNetworkRateRaw() {
         long[] result = new long[]{0L, 0L};
         try {
             String os = System.getProperty("os.name", "").toLowerCase();

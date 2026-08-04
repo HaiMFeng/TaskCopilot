@@ -449,6 +449,78 @@ body {
 .version-badge:hover { border-color: var(--accent); }
 .version-badge b { color: var(--accent); font-weight: 600; }
 
+/* ========== 加载遮罩 ========== */
+.app-loader {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    background: var(--bg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.loader-content {
+    text-align: center;
+    user-select: none;
+}
+.loader-icon {
+    position: relative;
+    display: inline-block;
+    width: 80px;
+    height: 80px;
+    margin-bottom: 16px;
+}
+.loader-logo {
+    font-size: 48px;
+    line-height: 80px;
+    position: relative;
+    z-index: 1;
+}
+.loader-shine {
+    position: absolute;
+    top: 0;
+    left: -80%;
+    width: 50%;
+    height: 100%;
+    background: linear-gradient(105deg,
+        transparent 0%,
+        transparent 30%,
+        rgba(255,255,255,.06) 40%,
+        rgba(255,255,255,.12) 50%,
+        rgba(255,255,255,.06) 60%,
+        transparent 70%,
+        transparent 100%);
+    animation: loader-shine 2.2s cubic-bezier(.4,0,.2,1) infinite;
+}
+@keyframes loader-shine {
+    0% { left: -80%; opacity: 0; }
+    15% { opacity: 1; }
+    85% { opacity: 1; }
+    100% { left: 120%; opacity: 0; }
+}
+.loader-title {
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--text);
+    margin: 0 0 6px;
+    letter-spacing: 1px;
+}
+.loader-sub {
+    font-size: 13px;
+    color: var(--text-dim);
+    margin: 0;
+    animation: loader-pulse 1.5s ease-in-out infinite;
+}
+@keyframes loader-pulse {
+    0%, 100% { opacity: .4; }
+    50% { opacity: 1; }
+}
+/* fade 过渡 */
+.fade-enter-active,
+.fade-leave-active { transition: opacity .4s ease; }
+.fade-enter-from,
+.fade-leave-to { opacity: 0; }
+
 /* 立即任务占位卡片 */
 .placeholder-card h2 { margin: 6px 0; color: var(--text); }
 

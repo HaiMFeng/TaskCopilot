@@ -5,6 +5,7 @@ import io.github.haimfeng.taskcopilot.domain.ExecutionStatus;
 import io.github.haimfeng.taskcopilot.domain.Task;
 import io.github.haimfeng.taskcopilot.domain.TaskLog;
 import io.github.haimfeng.taskcopilot.repository.TaskLogRepository;
+import io.github.haimfeng.taskcopilot.repository.TaskRepository;
 import io.github.haimfeng.taskcopilot.tasktype.TaskTypeHandler;
 import io.github.haimfeng.taskcopilot.tasktype.TaskTypeRegistry;
 import org.slf4j.Logger;
@@ -30,6 +31,7 @@ public class TaskExecutionService {
 
     private final CommandExecutor commandExecutor;
     private final TaskLogRepository taskLogRepository;
+    private final TaskRepository taskRepository;
     private final TaskCopilotProperties properties;
     private final TaskTypeRegistry taskTypeRegistry;
     private final TaskConfigCodec configCodec;
@@ -38,6 +40,7 @@ public class TaskExecutionService {
 
     public TaskExecutionService(CommandExecutor commandExecutor,
                                 TaskLogRepository taskLogRepository,
+                                TaskRepository taskRepository,
                                 TaskCopilotProperties properties,
                                 TaskTypeRegistry taskTypeRegistry,
                                 TaskConfigCodec configCodec,
@@ -45,6 +48,7 @@ public class TaskExecutionService {
                                 io.github.haimfeng.taskcopilot.service.TaskScheduler taskScheduler) {
         this.commandExecutor = commandExecutor;
         this.taskLogRepository = taskLogRepository;
+        this.taskRepository = taskRepository;
         this.properties = properties;
         this.taskTypeRegistry = taskTypeRegistry;
         this.configCodec = configCodec;
@@ -72,9 +76,49 @@ public class TaskExecutionService {
             if (result.status() == ExecutionStatus.FAILURE) {
                 taskScheduler.markError();
             }
+            // 执行失败或超时的任务自动停用，避免反复触发同一个坏任务
+            if (result.status() != ExecutionStatus.SUCCESS) {
+                result = disableTaskAfterFailure(task, result);
+            }
             return saveLog(task, triggerSource, result);
         } finally {
             concurrencyLimiter.release();
+        }
+    }
+
+    /**
+     * 任务执行失败（或超时）后自动关闭其启用开关，并解除调度注册。
+     * 同时在 stderr 末尾追加说明，便于用户在结果区直接看到停用原因。
+     *
+     * @return 追加了停用说明的执行结果；停用失败时原样返回
+     */
+    private CommandExecutor.ExecutionResult disableTaskAfterFailure(
+            Task task, CommandExecutor.ExecutionResult result) {
+        try {
+            Task fresh = taskRepository.findById(task.getId()).orElse(null);
+            if (fresh == null || !fresh.isEnabled()) {
+                // 任务已被删除或本就处于停用状态，无需重复处理
+                return result;
+            }
+            fresh.setEnabled(false);
+            taskRepository.save(fresh);
+            task.setEnabled(false);
+            taskScheduler.unschedule(task.getId());
+            log.warn("任务 [{}] 执行{}，已自动关闭任务开关", task.getName(),
+                    result.status() == ExecutionStatus.TIMEOUT ? "超时" : "失败");
+
+            String note = "任务执行%s，已自动关闭任务开关，请修复后手动重新启用。"
+                    .formatted(result.status() == ExecutionStatus.TIMEOUT ? "超时" : "失败");
+            String stderr = result.stderr() == null || result.stderr().isBlank()
+                    ? note
+                    : result.stderr().stripTrailing() + System.lineSeparator() + note;
+            return new CommandExecutor.ExecutionResult(
+                    result.status(), result.exitCode(), result.stdout(), stderr,
+                    result.startedAt(), result.finishedAt());
+        } catch (Exception e) {
+            // 自动停用属于附加行为，失败不应影响主流程与日志落库
+            log.error("任务 [{}] 自动停用失败", task.getName(), e);
+            return result;
         }
     }
 

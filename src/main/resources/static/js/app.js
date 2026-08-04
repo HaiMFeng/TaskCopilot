@@ -548,9 +548,10 @@ createApp({
             const ok = await _doSave();
             if (!ok) return;
             const id = form.id;
+            const wasEnabled = selectedTask.value ? selectedTask.value.enabled : false;
             running.value = true;
             try {
-                await API.executeTask(id);
+                const logResult = await API.executeTask(id);
                 // 直接拉取该任务最新状态：不依赖整列重载，
                 // 避免立即任务模式下 loadTasks 因 currentScheduleId 为空而清空列表、导致结果消失
                 const fresh = await API.getTask(id);
@@ -568,7 +569,17 @@ createApp({
                 if (resultOutput.value) {
                     resultOutput.value.scrollIntoView({behavior: 'smooth', block: 'nearest'});
                 }
-                ElMessage.success('执行完成');
+                // 执行失败的任务会被后端自动停用，此处据实提示，避免仍显示"执行完成"
+                const failed = logResult && logResult.status && logResult.status !== 'SUCCESS';
+                if (failed) {
+                    if (wasEnabled && fresh && fresh.enabled === false) {
+                        ElMessage.warning('执行失败，已自动关闭任务开关');
+                    } else {
+                        ElMessage.error('执行失败，请查看下方输出');
+                    }
+                } else {
+                    ElMessage.success('执行完成');
+                }
             } catch (e) {
                 ElMessage.error(e.message);
             } finally {

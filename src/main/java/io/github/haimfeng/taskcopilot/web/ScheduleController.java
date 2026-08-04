@@ -33,8 +33,8 @@ public class ScheduleController {
     }
 
     @GetMapping("/current")
-    public ScheduleResponse currentOrDefault() {
-        return scheduleService.currentOrDefault();
+    public ScheduleResponse current() {
+        return scheduleService.current();
     }
 
     @GetMapping("/{id}")

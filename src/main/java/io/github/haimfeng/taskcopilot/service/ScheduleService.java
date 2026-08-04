@@ -148,7 +148,20 @@ public class ScheduleService {
     }
 
     /**
-     * 返回当前生效的日程表；若不存在则确保存在一个默认日程表。
+     * 返回当前生效（active）的日程表；若无任何日程表处于启用状态，返回 null。
+     * 注意：本方法不会自动创建或启用日程表，以保证用户显式「不启用」的状态可被持久保留。
+     */
+    @Transactional(readOnly = true)
+    public ScheduleResponse current() {
+        return scheduleRepository.findFirstByActiveTrue()
+                .map(s -> ScheduleResponse.from(s, (int) taskRepository.countByScheduleId(s.getId())))
+                .orElse(null);
+    }
+
+    /**
+     * 首次启动兜底：确保至少存在一个（默认）启用的日程表。
+     * 仅在数据库为空、或恰好没有任何启用日程表且这是应用首次就绪时使用，
+     * 不应在用户每次刷新前端时被调用，否则会覆盖用户「不启用」的选择。
      */
     @Transactional
     public ScheduleResponse currentOrDefault() {

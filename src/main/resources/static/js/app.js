@@ -5,7 +5,7 @@ const {createApp, ref, reactive, computed, onMounted, onBeforeUnmount, nextTick}
 const {ElMessage, ElMessageBox} = ElementPlus;
 
 // 前端 JS 版本号（修改后请同步递增，便于辨识加载版本）
-const APP_JS_VERSION = '20260805.10';
+const APP_JS_VERSION = '20260805.11';
 
 /** 任务顶级字段（不放进 config，提交时提升到 payload 顶层） */
 const TOP_LEVEL_FIELDS = new Set(['command', 'workingDir', 'timeoutSeconds']);
@@ -1005,8 +1005,12 @@ createApp({
             try {
                 const cur = await API.currentSchedule();
                 await loadSchedules();
-                if (schedules.value.length > 0) {
-                    await selectSchedule((cur && cur.id) != null ? cur.id : schedules.value[0].id);
+                if (cur && cur.id != null) {
+                    // 存在一个启用的日程表，选中它
+                    await selectSchedule(cur.id);
+                } else {
+                    // 没有任何启用的日程表（用户显式「不启用」），保持「不启用」状态
+                    await selectSchedule(0);
                 }
             } catch (e) {
                 ElMessage.error('加载日程表失败：' + e.message);

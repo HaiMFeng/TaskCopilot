@@ -56,6 +56,12 @@ public class ScreenCaptureService {
     private final Object lock = new Object();
 
     public ScreenCaptureService() {
+        // Spring Boot 默认开启 headless 模式（spring.main.headless=true），
+        // 会导致 java.awt.Robot 初始化失败。这里尝试强制关闭 headless 再初始化。
+        if (GraphicsEnvironment.isHeadless()) {
+            log.info("检测到 headless 模式已启用，尝试强制关闭以支持屏幕截图...");
+            System.setProperty("java.awt.headless", "false");
+        }
         try {
             GraphicsEnvironment ge = GraphicsEnvironment.getLocalGraphicsEnvironment();
             GraphicsDevice gd = ge.getDefaultScreenDevice();
@@ -65,7 +71,7 @@ public class ScreenCaptureService {
             log.info("屏幕截图服务可用，主屏尺寸 {}x{}", screenRect.width, screenRect.height);
         } catch (AWTException | HeadlessException e) {
             available.set(false);
-            log.warn("屏幕截图服务不可用（无桌面环境）：{}", e.getMessage());
+            log.warn("屏幕截图服务不可用（无桌面环境）：{}。请确认以带桌面会话方式运行（java -jar 或 IDEA 前台运行），且未设置 -Djava.awt.headless=true", e.getMessage());
         }
     }
 

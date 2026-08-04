@@ -71,6 +71,8 @@ body {
     --el-fill-color-blank: var(--bg-input);
     --el-border-color: var(--border);
 }
+.mode-option-item { display: inline-flex; align-items: center; gap: 8px; }
+.mode-select-mobile .el-select__prefix { margin-right: 4px; }
 /* 消除点击/聚焦产生的蓝色方块高亮 */
 .mode-select-mobile .el-select__wrapper {
     -webkit-tap-highlight-color: transparent;

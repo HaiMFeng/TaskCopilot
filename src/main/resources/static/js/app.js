@@ -5,7 +5,7 @@ const {createApp, ref, reactive, computed, onMounted, onBeforeUnmount, nextTick}
 const {ElMessage, ElMessageBox} = ElementPlus;
 
 // 前端 JS 版本号（修改后请同步递增，便于辨识加载版本）
-const APP_JS_VERSION = '20260805.07';
+const APP_JS_VERSION = '20260805.08';
 
 /** 任务顶级字段（不放进 config，提交时提升到 payload 顶层） */
 const TOP_LEVEL_FIELDS = new Set(['command', 'workingDir', 'timeoutSeconds']);
@@ -307,11 +307,11 @@ createApp({
     setup() {
         /* ---------------- 基础状态 ---------------- */
         const modes = [
-            {key: 'dashboard', label: '仪表盘', shortLabel: '仪表'},
-            {key: 'schedule', label: '日程表', shortLabel: '日程'},
-            {key: 'terminal', label: '终端', shortLabel: '终端'},
-            {key: 'monitor', label: '屏幕', shortLabel: '屏幕'},
-            {key: 'files', label: '文件管理器', shortLabel: '文件'},
+            {key: 'dashboard', label: '仪表盘', shortLabel: '仪表', icon: 'fa-solid fa-gauge'},
+            {key: 'schedule', label: '日程表', shortLabel: '日程', icon: 'fa-solid fa-calendar-days'},
+            {key: 'terminal', label: '终端', shortLabel: '终端', icon: 'fa-solid fa-terminal'},
+            {key: 'monitor', label: '屏幕', shortLabel: '屏幕', icon: 'fa-solid fa-desktop'},
+            {key: 'files', label: '文件管理器', shortLabel: '文件', icon: 'fa-solid fa-folder'},
         ];
         const mode = ref('dashboard');
         const modeRefs = {};

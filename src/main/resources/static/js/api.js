@@ -48,5 +48,6 @@ const API = (() => {
         pauseScheduler: () => request('POST', '/system/scheduler/pause'),
         resumeScheduler: () => request('POST', '/system/scheduler/resume'),
         checkPath: (path) => request('POST', '/system/check-path', {path}),
+        fetchProcesses: () => request('GET', '/system/processes'),
     };
 })();

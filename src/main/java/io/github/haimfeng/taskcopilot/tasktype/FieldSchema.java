@@ -56,6 +56,11 @@ public record FieldSchema(
         return new FieldSchema(name, label, "appFile", true, null, null, null, null, help);
     }
 
+    /** 进程名字段：前端渲染为文本输入框 + 「选择进程」按钮，可从运行中进程列表选取 */
+    public static FieldSchema process(String name, String label, String help) {
+        return new FieldSchema(name, label, "process", true, null, null, null, null, help);
+    }
+
     /** 构造下拉选项 */
     public static Map<String, Object> option(String value, String label) {
         Map<String, Object> m = new java.util.LinkedHashMap<>();

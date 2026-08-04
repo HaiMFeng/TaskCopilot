@@ -68,6 +68,41 @@ public class SystemController {
     }
 
     /**
+     * 获取当前运行中的进程名列表（去重、按字母排序），供前端「选择进程」下拉使用。
+     */
+    @GetMapping("/processes")
+    public java.util.List<Map<String, String>> runningProcesses() {
+        java.util.List<Map<String, String>> list = new java.util.ArrayList<>();
+        try {
+            ProcessBuilder pb = new ProcessBuilder("tasklist", "/FO", "CSV", "/NH");
+            pb.redirectErrorStream(true);
+            Process p = pb.start();
+            try (java.io.BufferedReader reader = new java.io.BufferedReader(
+                    new java.io.InputStreamReader(p.getInputStream()))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    // CSV 格式: "进程名.exe","PID","会话名","会话#","内存使用"
+                    String[] parts = line.replace("\"", "").split(",");
+                    if (parts.length > 0) {
+                        String name = parts[0].trim();
+                        if (!name.isBlank()) {
+                            list.add(Map.of("name", name));
+                        }
+                    }
+                }
+            }
+            p.waitFor();
+        } catch (Exception e) {
+            // 获取进程列表失败不是致命错误，返回空列表即可
+        }
+        // 按进程名去重排序
+        return list.stream()
+                .distinct()
+                .sorted(java.util.Comparator.comparing(m -> m.get("name").toLowerCase()))
+                .toList();
+    }
+
+    /**
      * 校验应用路径是否合法：存在且为文件，并返回扩展名。
      * 前端在用户拖入/手动填写 .exe/.lnk 路径时用于实时校验。
      */

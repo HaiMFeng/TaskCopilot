@@ -72,6 +72,8 @@ body {
     --el-border-color: var(--border);
 }
 .mode-option-item { display: inline-flex; align-items: center; gap: 8px; }
+.mode-option-item > i,
+.mode-select-mobile .el-select__prefix > i { color: var(--accent); }
 .mode-select-mobile .el-select__prefix { margin-right: 4px; }
 /* 消除点击/聚焦产生的蓝色方块高亮 */
 .mode-select-mobile .el-select__wrapper {
@@ -585,7 +587,7 @@ body {
     display: flex;
     align-items: center;
     gap: 8px;
-    color: var(--text-dim);
+    color: var(--text);
     font-size: 13px;
     font-weight: 600;
 }
@@ -642,6 +644,12 @@ body {
 .screen-toolbar-left { display: flex; align-items: center; gap: 8px; color: var(--text); font-weight: 600; }
 .screen-toolbar-left .fa-desktop { color: var(--accent); }
 .screen-meta { font-size: 12px; font-weight: 400; color: var(--text-dim); }
+
+/* 各界面标题图标统一为强调色，文字统一为主文本色 */
+.terminal-toolbar-left .fa-terminal { color: var(--accent); }
+.view-title-icon { color: var(--accent); margin-right: 6px; }
+.schedule-rail-head .section-title.view-title { color: var(--text); }
+.placeholder-card .placeholder-icon { color: var(--accent); }
 .screen-toolbar-right { display: flex; align-items: center; gap: 8px; }
 .screen-quality-label { font-size: 13px; color: var(--text-dim); }
 .screen-quality-label + .el-select {

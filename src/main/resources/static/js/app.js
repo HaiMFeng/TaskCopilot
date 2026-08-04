@@ -402,8 +402,12 @@ createApp({
         async function deleteSchedule(id) {
             const sch = schedules.value.find((s) => s.id === id);
             try {
+                const count = sch ? sch.taskCount : 0;
+                const tip = count > 0
+                    ? `其下 ${count} 个任务及其执行记录将一并删除，且无法恢复。`
+                    : '该日程表下暂无任务。';
                 await ElMessageBox.confirm(
-                    `确定删除日程表「${sch ? sch.name : id}」？其下任务将变为未分组。`,
+                    `确定删除日程表「${sch ? sch.name : id}」？${tip}`,
                     '删除确认',
                     {type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消'}
                 );

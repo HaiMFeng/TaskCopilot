@@ -3,6 +3,7 @@ package io.github.haimfeng.taskcopilot.service;
 import io.github.haimfeng.taskcopilot.domain.Schedule;
 import io.github.haimfeng.taskcopilot.domain.Task;
 import io.github.haimfeng.taskcopilot.repository.ScheduleRepository;
+import io.github.haimfeng.taskcopilot.repository.TaskLogRepository;
 import io.github.haimfeng.taskcopilot.repository.TaskRepository;
 import io.github.haimfeng.taskcopilot.service.TaskScheduler;
 import io.github.haimfeng.taskcopilot.web.dto.ScheduleRequest;
@@ -24,13 +25,16 @@ public class ScheduleService {
 
     private final ScheduleRepository scheduleRepository;
     private final TaskRepository taskRepository;
+    private final TaskLogRepository taskLogRepository;
     private final TaskScheduler taskScheduler;
 
     public ScheduleService(ScheduleRepository scheduleRepository,
                            TaskRepository taskRepository,
+                           TaskLogRepository taskLogRepository,
                            TaskScheduler taskScheduler) {
         this.scheduleRepository = scheduleRepository;
         this.taskRepository = taskRepository;
+        this.taskLogRepository = taskLogRepository;
         this.taskScheduler = taskScheduler;
     }
 
@@ -96,16 +100,26 @@ public class ScheduleService {
         return resp;
     }
 
+    /**
+     * 删除日程表，并级联删除其下的所有任务（含调度注册与执行日志）。
+     */
     @Transactional
     public void delete(Long id) {
         Schedule s = requireSchedule(id);
-        // 解除该日程表下任务的归属关系，避免数据悬挂
+        // 级联删除该日程表下的任务：先解除调度并清理日志，再删除任务本身
         List<Task> tasks = taskRepository.findByScheduleId(id);
-        tasks.forEach(t -> t.setScheduleId(null));
+        for (Task t : tasks) {
+            taskScheduler.unschedule(t.getId());
+            taskLogRepository.deleteByTaskId(t.getId());
+        }
         if (!tasks.isEmpty()) {
-            taskRepository.saveAll(tasks);
+            taskRepository.deleteAll(tasks);
         }
         scheduleRepository.delete(s);
+        // 若删除的是运行中的日程表，需要重新排程以清除残留
+        if (s.isActive()) {
+            taskScheduler.reloadAll();
+        }
     }
 
     /**

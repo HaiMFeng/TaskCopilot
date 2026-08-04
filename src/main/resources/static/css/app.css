@@ -65,6 +65,13 @@ body {
 .brand .logo { font-size: 20px; }
 .brand-name { font-size: 16px; letter-spacing: .3px; }
 
+/* 移动端模式选择框：桌面隐藏 */
+.mode-select-mobile { display: none; }
+.mode-select-mobile .el-select {
+    --el-fill-color-blank: var(--bg-input);
+    --el-border-color: var(--border);
+}
+
 /* 模式切换滑块 */
 .mode-switch {
     position: relative;
@@ -907,23 +914,14 @@ body {
     .topbar-right { flex: 0 0 auto; margin-left: auto; }
     .brand-name { display: none; }
     .brand .logo { font-size: 18px; }
-    /* 模式切换：外层可收缩并横向滚动，内层保持原样以保证滑动指示器定位正确 */
-    .mode-switch-scroll {
+    /* 移动端隐藏滑块，改用选择框 */
+    .mode-switch-scroll { display: none; }
+    .mode-select-mobile {
+        display: block;
         flex: 1 1 auto;
         min-width: 0;
-        overflow-x: auto;
-        scrollbar-width: none;
-        /* 滚动容器左右内边距，避免胶囊圆角裁切断裂、末项贴边；
-           内边距加在容器而非按钮上，不影响按钮 offsetWidth，thumb 不会偏移 */
-        padding: 0 4px;
     }
-    .mode-switch-scroll::-webkit-scrollbar { display: none; }
-    .mode-switch {
-        flex: 0 0 auto;
-        /* 滚动时不收缩，保证末项「文件」始终在胶囊内而非滑条之外 */
-        width: max-content;
-    }
-    .mode-option { padding: 6px 12px; font-size: 12px; }
+    .mode-select-mobile .el-select { width: 100%; }
     .state-pill { font-size: 11px; padding: 4px 8px; line-height: 1; }
 
     /* 主区域：禁止横向溢出，日程表视图纵向排列 */

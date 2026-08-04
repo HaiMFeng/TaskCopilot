@@ -4,7 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>TaskCopilot · 任务管理</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='28' font-size='28'>⏱</text></svg>">
     <link rel="stylesheet" href="/vendor/index.css">
+    <link rel="stylesheet" href="/vendor/fontawesome-all.min.css">
     <link rel="stylesheet" href="/vendor/dark/css-vars.css">
     <link rel="stylesheet" href="/css/app.css">
 </head>
@@ -15,7 +17,7 @@
         <div v-if="loading" class="app-loader">
             <div class="loader-content">
                 <div class="loader-icon">
-                    <span class="loader-logo">⏱</span>
+                    <span class="loader-logo"><i class="fa-solid fa-stopwatch"></i></span>
                     <div class="loader-shine"></div>
                 </div>
                 <h1 class="loader-title">TaskCopilot</h1>
@@ -26,7 +28,7 @@
 
     <header class="topbar">
         <div class="brand">
-            <span class="logo">⏱</span>
+            <span class="logo"><i class="fa-solid fa-stopwatch"></i></span>
             <span class="brand-name">TaskCopilot</span>
         </div>
 
@@ -190,7 +192,7 @@
 
                 <section class="task-detail-pane">
                     <div v-if="!selectedTask" class="detail-placeholder">
-                        <div class="placeholder-icon">📋</div>
+                        <div class="placeholder-icon"><i class="fa-solid fa-clipboard-list"></i></div>
                         <p>从左侧选择一个任务查看与编辑详情</p>
                     </div>
 
@@ -273,7 +275,7 @@
             <div class="dash-cards">
                 <!-- CPU -->
                 <div class="dash-card">
-                    <div class="dash-card-icon cpu-icon">🖥</div>
+                    <div class="dash-card-icon cpu-icon"><i class="fa-solid fa-microchip"></i></div>
                     <div class="dash-card-body">
                         <div class="dash-card-label">CPU</div>
                         <div class="dash-card-value">
@@ -286,7 +288,7 @@
 
                 <!-- 内存 -->
                 <div class="dash-card">
-                    <div class="dash-card-icon mem-icon">🧠</div>
+                    <div class="dash-card-icon mem-icon"><i class="fa-solid fa-memory"></i></div>
                     <div class="dash-card-body">
                         <div class="dash-card-label">内存</div>
                         <div class="dash-card-value">
@@ -299,7 +301,7 @@
 
                 <!-- 磁盘 -->
                 <div class="dash-card">
-                    <div class="dash-card-icon disk-icon">💾</div>
+                    <div class="dash-card-icon disk-icon"><i class="fa-solid fa-hard-drive"></i></div>
                     <div class="dash-card-body">
                         <div class="dash-card-label">磁盘</div>
                         <div class="dash-card-value">
@@ -312,7 +314,7 @@
 
                 <!-- 网络 -->
                 <div class="dash-card">
-                    <div class="dash-card-icon net-icon">🌐</div>
+                    <div class="dash-card-icon net-icon"><i class="fa-solid fa-globe"></i></div>
                     <div class="dash-card-body">
                         <div class="dash-card-label">网络</div>
                         <div class="dash-card-value">
@@ -329,7 +331,7 @@
             <div class="dash-row2">
                 <!-- 网络配置 -->
                 <div class="dash-panel">
-                    <div class="dash-panel-title">🌐 网络配置</div>
+                    <div class="dash-panel-title"><i class="fa-solid fa-globe"></i> 网络配置</div>
                     <div class="dash-panel-body">
                         <div class="dash-stat-row">
                             <span class="dash-stat-label">本机地址</span>
@@ -361,7 +363,7 @@
 
                 <!-- 日程表 & 任务状态 -->
                 <div class="dash-panel">
-                    <div class="dash-panel-title">⏱ 任务概览</div>
+                    <div class="dash-panel-title"><i class="fa-solid fa-list-check"></i> 任务概览</div>
                     <div class="dash-panel-body">
                         <div class="dash-stat-row">
                             <span class="dash-stat-label">运行中日程表</span>
@@ -404,7 +406,7 @@
         <!-- ===== 文件管理器占位 ===== -->
         <section v-show="mode === 'files'" class="mode-view">
             <div class="placeholder-card">
-                <div class="placeholder-icon">📁</div>
+                <div class="placeholder-icon"><i class="fa-solid fa-folder-open"></i></div>
                 <h2>文件管理器</h2>
                 <p>该模块正在建设中，敬请期待。</p>
                 <p class="placeholder-sub">文件管理器将支持远程浏览与管理小主机上的文件。</p>
@@ -456,7 +458,7 @@
 <script src="/vendor/index.full.min.js"></script>
 <script src="/vendor/dayjs.min.js"></script>
 <script src="/js/api.js"></script>
-<script>window.__APP_HTML_VERSION__ = '20260804.11';</script>
-<script src="/js/app.js?v=20260804.11"></script>
+<script>window.__APP_HTML_VERSION__ = '20260804.12';</script>
+<script src="/js/app.js?v=20260804.12"></script>
 </body>
 </html>

@@ -100,7 +100,9 @@ public class TerminalSessionManager {
         try {
             ProcessBuilder pb;
             if ("PowerShell".equals(currentShell)) {
-                pb = new ProcessBuilder("powershell", "-NoExit", "-Command", "-");
+                // 交互模式：正确把 stdin 转发给前台子进程（如 python REPL），
+                // 避免 -Command - 脚本模式与子进程竞争同一 stdin 管道。
+                pb = new ProcessBuilder("powershell", "-NoExit");
             } else {
                 pb = new ProcessBuilder("cmd", "/K");
             }

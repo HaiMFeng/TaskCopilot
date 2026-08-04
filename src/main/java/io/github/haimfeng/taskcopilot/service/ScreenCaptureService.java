@@ -7,11 +7,8 @@ import org.springframework.stereotype.Service;
 import jakarta.annotation.PreDestroy;
 import java.awt.AWTException;
 import java.awt.HeadlessException;
-import java.awt.GraphicsConfiguration;
-import java.awt.Graphics2D;
 import java.awt.GraphicsDevice;
 import java.awt.GraphicsEnvironment;
-import java.awt.RenderingHints;
 import java.awt.Rectangle;
 import java.awt.Robot;
 import java.awt.image.BufferedImage;
@@ -54,8 +51,7 @@ public class ScreenCaptureService {
     private final AtomicLong lastRequestMs = new AtomicLong(0);
 
     private Robot robot;
-    private Rectangle screenRect;        // 逻辑尺寸（用于界面展示参考）
-    private Rectangle captureRect;       // 物理像素捕获区域（含 DPI 缩放还原）
+    private Rectangle screenRect;        // 实际截图尺寸（逻辑像素，含 DPI 缩放）
     private Thread captureThread;
     private final Object lock = new Object();
 
@@ -69,20 +65,10 @@ public class ScreenCaptureService {
         try {
             GraphicsEnvironment ge = GraphicsEnvironment.getLocalGraphicsEnvironment();
             GraphicsDevice gd = ge.getDefaultScreenDevice();
-            GraphicsConfiguration gc = gd.getDefaultConfiguration();
-            screenRect = gc.getBounds();
-            // 还原 DPI 缩放，得到物理像素捕获区域（如 2560x1600 @150% 缩放）
-            var tx = gc.getDefaultTransform();
-            double sx = tx.getScaleX() <= 0 ? 1.0 : tx.getScaleX();
-            double sy = tx.getScaleY() <= 0 ? 1.0 : tx.getScaleY();
-            captureRect = new Rectangle(0, 0,
-                    (int) Math.round(screenRect.width * sx),
-                    (int) Math.round(screenRect.height * sy));
+            screenRect = gd.getDefaultConfiguration().getBounds();
             robot = new Robot(gd);
             available.set(true);
-            log.info("屏幕截图服务可用，逻辑尺寸 {}x{}，物理尺寸 {}x{}（缩放 {}x{}）",
-                    screenRect.width, screenRect.height,
-                    captureRect.width, captureRect.height, sx, sy);
+            log.info("屏幕截图服务可用，截图尺寸 {}x{}", screenRect.width, screenRect.height);
         } catch (AWTException | HeadlessException e) {
             available.set(false);
             log.warn("屏幕截图服务不可用（无桌面环境）：{}。请确认以带桌面会话方式运行（java -jar 或 IDEA 前台运行），且未设置 -Djava.awt.headless=true", e.getMessage());
@@ -94,9 +80,9 @@ public class ScreenCaptureService {
         return available.get();
     }
 
-    /** 当前主屏物理尺寸。 */
+    /** 当前截图尺寸（逻辑像素）。 */
     public Rectangle getScreenRect() {
-        return captureRect;
+        return screenRect;
     }
 
     /**
@@ -146,13 +132,11 @@ public class ScreenCaptureService {
 
     /**
      * 按给定质量（0.1~1.0）返回最新截图的 JPEG 字节。无可用帧时返回 null。
-     * 截图源为逻辑分辨率，这里放大绘制到物理尺寸（DPI 缩放还原），保证画面铺满无黑边。
      */
     public byte[] getJpeg(double quality) {
         if (!available.get()) return null;
-        BufferedImage src = latest.get();
-        if (src == null) return null;
-        BufferedImage out = upscaleToPhysical(src);
+        BufferedImage img = latest.get();
+        if (img == null) return null;
         float q = (float) Math.max(0.1, Math.min(1.0, quality));
         try (ByteArrayOutputStream baos = new ByteArrayOutputStream();
              ImageOutputStream ios = ImageIO.createImageOutputStream(baos)) {
@@ -163,28 +147,13 @@ public class ScreenCaptureService {
                 params.setCompressionQuality(q);
             }
             writer.setOutput(ios);
-            writer.write(null, new IIOImage(out, null, null), params);
+            writer.write(null, new IIOImage(img, null, null), params);
             writer.dispose();
             return baos.toByteArray();
         } catch (IOException e) {
             log.warn("屏幕截图编码失败", e);
             return null;
         }
-    }
-
-    /** 将逻辑分辨率截图放大绘制到物理像素尺寸，避免黑边与变形。 */
-    private BufferedImage upscaleToPhysical(BufferedImage src) {
-        int pw = captureRect.width;
-        int ph = captureRect.height;
-        if (src.getWidth() == pw && src.getHeight() == ph) return src;
-        BufferedImage scaled = new BufferedImage(pw, ph, BufferedImage.TYPE_INT_RGB);
-        Graphics2D g = scaled.createGraphics();
-        g.setRenderingHint(RenderingHints.KEY_INTERPOLATION,
-                RenderingHints.VALUE_INTERPOLATION_BILINEAR);
-        g.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
-        g.drawImage(src, 0, 0, pw, ph, null);
-        g.dispose();
-        return scaled;
     }
 
     /** 最近一次截图时间戳（毫秒）。 */

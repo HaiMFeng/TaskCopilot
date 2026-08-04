@@ -913,10 +913,17 @@ body {
         min-width: 0;
         overflow-x: auto;
         scrollbar-width: none;
+        /* 避免胶囊圆角在滚动裁切时断裂、末项贴边 */
+        padding: 0 2px;
     }
     .mode-switch-scroll::-webkit-scrollbar { display: none; }
-    .mode-switch { flex: 0 0 auto; }
+    .mode-switch {
+        flex: 0 0 auto;
+        /* 滚动时不收缩，保证末项「文件」始终在胶囊内而非滑条之外 */
+        width: max-content;
+    }
     .mode-option { padding: 6px 12px; font-size: 12px; }
+    .mode-option:last-child { padding-right: 16px; }
     .state-pill { font-size: 11px; padding: 4px 8px; line-height: 1; }
 
     /* 主区域：禁止横向溢出，日程表视图纵向排列 */

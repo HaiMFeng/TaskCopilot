@@ -96,6 +96,8 @@ body {
     cursor: pointer;
     transition: color .2s;
     white-space: nowrap;
+    outline: none;
+    -webkit-tap-highlight-color: transparent;
 }
 .mode-option.active { color: #fff; font-weight: 600; }
 .mode-label-short { display: none; }
@@ -441,6 +443,8 @@ body {
     padding: 4px 9px; border-radius: 7px; box-shadow: var(--shadow);
     user-select: none; cursor: pointer;
     transition: border-color .2s;
+    outline: none;
+    -webkit-tap-highlight-color: transparent;
 }
 .version-badge:hover { border-color: var(--accent); }
 .version-badge b { color: var(--accent); font-weight: 600; }
@@ -676,7 +680,7 @@ body {
     .brand-name { display: none; }
     .brand .logo { font-size: 18px; }
     .mode-option { padding: 6px 12px; font-size: 12px; }
-    .state-pill { font-size: 11px; padding: 1px 7px; }
+    .state-pill { font-size: 11px; padding: 4px 8px; line-height: 1; }
 
     /* 主区域：禁止横向溢出，日程表视图纵向排列 */
     #mainView { overflow: hidden; }
@@ -822,6 +826,7 @@ body {
         display: flex;
         flex-direction: column;
         overflow: hidden;
+        padding: 0;
     }
     .mobile-detail-bar {
         padding: 10px 16px;
@@ -831,15 +836,26 @@ body {
         align-items: center;
     }
     .mobile-detail .detail-form {
-        height: 0;
-        flex: 1;
+        flex: 1 1 0;
         overflow-y: auto;
         padding: 16px;
         padding-bottom: 40px;
         -webkit-overflow-scrolling: touch;
         scrollbar-width: none;
+        /* 覆盖桌面端 flex 布局，防止子元素被压缩 */
+        display: block !important;
+        max-width: none !important;
     }
     .mobile-detail .detail-form::-webkit-scrollbar { display: none; }
+    /* 移动端表单内部元素保持正常流，补回间距 */
+    .mobile-detail .detail-form .detail-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+    .mobile-detail .detail-form .detail-actions { display: flex; gap: 8px; }
+    .mobile-detail .detail-form .el-form-item { display: block; width: 100%; margin-bottom: 14px; }
+    .mobile-detail .detail-form .config-fields { display: block; margin-bottom: 14px; }
+    .mobile-detail .detail-form .detail-meta { margin-bottom: 14px; }
+    .mobile-detail .detail-form .result-box { margin-bottom: 14px; }
+    .mobile-detail .detail-form .btn-danger-ghost { display: block; width: 100%; }
+    .mobile-detail .detail-form .result-meta { margin-left: 0; }
     /* 新建任务按钮与列表间距 */
     .pane-head { margin-bottom: 8px; }
     /* 详情滑入动画 */

@@ -960,11 +960,32 @@ createApp({
         function copyVersions() {
             const htmlV = window.__APP_HTML_VERSION__ || '?';
             const text = 'HTML ' + htmlV + '  JS ' + APP_JS_VERSION;
-            navigator.clipboard.writeText(text).then(() => {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(text).then(() => {
+                    ElMessage.success('已复制：' + text);
+                }).catch(() => {
+                    fallbackCopy(text);
+                });
+            } else {
+                fallbackCopy(text);
+            }
+        }
+        function fallbackCopy(text) {
+            const ta = document.createElement('textarea');
+            ta.value = text;
+            ta.style.position = 'fixed';
+            ta.style.left = '-9999px';
+            ta.style.top = '-9999px';
+            document.body.appendChild(ta);
+            ta.focus();
+            ta.select();
+            try {
+                document.execCommand('copy');
                 ElMessage.success('已复制：' + text);
-            }).catch(() => {
-                ElMessage.error('复制失败');
-            });
+            } catch (e) {
+                ElMessage.error('复制失败，请手动复制');
+            }
+            document.body.removeChild(ta);
         }
 
         onBeforeUnmount(() => {

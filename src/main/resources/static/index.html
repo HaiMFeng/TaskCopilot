@@ -32,18 +32,20 @@
             <span class="brand-name">TaskCopilot</span>
         </div>
 
-        <div class="mode-switch" role="tablist" aria-label="模式切换">
-            <div class="mode-thumb" :style="thumbStyle"></div>
-            <button v-for="m in modes"
-                    :key="m.key"
-                    :ref="el => setModeRef(m.key, el)"
-                    class="mode-option"
-                    :class="{ active: mode === m.key }"
-                    role="tab"
-                    @click="switchMode(m.key)">
-                <span class="mode-label-full">{{ m.label }}</span>
-                <span class="mode-label-short">{{ m.shortLabel }}</span>
-            </button>
+        <div class="mode-switch-scroll">
+            <div class="mode-switch" role="tablist" aria-label="模式切换">
+                <div class="mode-thumb" :style="thumbStyle"></div>
+                <button v-for="m in modes"
+                        :key="m.key"
+                        :ref="el => setModeRef(m.key, el)"
+                        class="mode-option"
+                        :class="{ active: mode === m.key }"
+                        role="tab"
+                        @click="switchMode(m.key)">
+                    <span class="mode-label-full">{{ m.label }}</span>
+                    <span class="mode-label-short">{{ m.shortLabel }}</span>
+                </button>
+            </div>
         </div>
 
         <div class="topbar-right">
@@ -509,7 +511,7 @@
 <script src="/vendor/index.full.min.js"></script>
 <script src="/vendor/dayjs.min.js"></script>
 <script src="/js/api.js"></script>
-<script>window.__APP_HTML_VERSION__ = '20260805.01';</script>
-<script src="/js/app.js?v=20260805.01"></script>
+<script>window.__APP_HTML_VERSION__ = '20260805.02';</script>
+<script src="/js/app.js?v=20260805.02"></script>
 </body>
 </html>

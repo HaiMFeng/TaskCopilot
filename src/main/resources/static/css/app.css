@@ -452,7 +452,7 @@ body {
 
 /* ---------- 版本标识 ---------- */
 .version-badge {
-    position: fixed; left: 12px; bottom: 10px; z-index: 60;
+    position: fixed; right: 12px; bottom: 10px; z-index: 60;
     display: flex; gap: 10px; align-items: center;
     font-size: 11px; line-height: 1; color: var(--text-muted);
     background: var(--bg-raised); border: 1px solid var(--border);
@@ -871,11 +871,24 @@ body {
     /* 顶栏 */
     .topbar {
         padding: 0 10px;
-        gap: 10px;
+        gap: 8px;
         height: 50px;
+        /* 始终单行，滑块类别增多时由内部滚动承载，不挤压右侧状态 */
+        flex-wrap: nowrap;
     }
+    .brand { flex: 0 0 auto; }
+    .topbar-right { flex: 0 0 auto; margin-left: auto; }
     .brand-name { display: none; }
     .brand .logo { font-size: 18px; }
+    /* 模式切换：外层可收缩并横向滚动，内层保持原样以保证滑动指示器定位正确 */
+    .mode-switch-scroll {
+        flex: 1 1 auto;
+        min-width: 0;
+        overflow-x: auto;
+        scrollbar-width: none;
+    }
+    .mode-switch-scroll::-webkit-scrollbar { display: none; }
+    .mode-switch { flex: 0 0 auto; }
     .mode-option { padding: 6px 12px; font-size: 12px; }
     .state-pill { font-size: 11px; padding: 4px 8px; line-height: 1; }
 
@@ -1077,7 +1090,7 @@ body {
     .el-dialog { width: calc(100vw - 20px) !important; margin: 10px !important; }
 
     /* 版本标识 */
-    .version-badge { left: 6px; bottom: 6px; font-size: 10px; padding: 3px 6px; gap: 6px; }
+    .version-badge { right: 6px; bottom: 6px; left: auto; font-size: 10px; padding: 3px 6px; gap: 6px; }
 
     /* 终端输入栏：移动端按钮只显示图标，节省空间 */
     .terminal-input-bar .btn-label { display: none; }

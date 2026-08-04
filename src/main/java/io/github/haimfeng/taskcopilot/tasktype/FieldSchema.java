@@ -51,6 +51,10 @@ public record FieldSchema(
         return new FieldSchema(name, label, "textarea", false, null, null, null, null, help);
     }
 
+    public static FieldSchema textarea(String name, String label, boolean required, String help) {
+        return new FieldSchema(name, label, "textarea", required, null, null, null, null, help);
+    }
+
     /** 应用路径字段：前端渲染为可拖入 exe/lnk 的拖放区，值存储为文件路径 */
     public static FieldSchema appFile(String name, String label, String help) {
         return new FieldSchema(name, label, "appFile", true, null, null, null, null, help);

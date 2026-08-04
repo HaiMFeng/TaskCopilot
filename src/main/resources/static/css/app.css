@@ -157,6 +157,7 @@ body {
     background: var(--bg-input);
     cursor: pointer;
     transition: border-color .15s, background .15s;
+    user-select: none;
 }
 .schedule-item:hover { border-color: #3a4252; }
 .schedule-item.selected { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }

@@ -57,6 +57,12 @@ public class ScheduleController {
         return scheduleService.activate(id);
     }
 
+    @PostMapping("/deactivate")
+    public ResponseEntity<Void> deactivate() {
+        scheduleService.deactivate();
+        return ResponseEntity.ok().build();
+    }
+
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         scheduleService.delete(id);

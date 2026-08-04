@@ -134,6 +134,11 @@ body {
     color: #ef4444;
     border-color: rgba(239, 68, 68, 0.4);
 }
+.state-pill.idle {
+    background: rgba(154, 163, 178, 0.1);
+    color: var(--text-dim);
+    border-color: rgba(154, 163, 178, 0.3);
+}
 
 /* ---------- 主视图 ---------- */
 #mainView { flex: 1; min-height: 0; display: flex; }
@@ -172,6 +177,15 @@ body {
 .schedule-item:hover { border-color: #3a4252; }
 .schedule-item.selected { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
 .schedule-item.running { border-left: 3px solid var(--accent-2); }
+/* 虚拟「不启用」日程表：未激活灰色，激活后红色 */
+.schedule-item.virtual { border-color: var(--border); }
+.schedule-item.virtual .schedule-dot { background: #555; }
+.schedule-item.virtual .schedule-name { color: var(--text-dim); font-weight: 700; }
+.schedule-item.virtual.selected { border-color: var(--danger); box-shadow: 0 0 0 1px var(--danger) inset; }
+.schedule-item.virtual.running { border-left: 3px solid var(--danger); }
+.schedule-item.virtual.running .schedule-dot { background: var(--danger); box-shadow: 0 0 8px var(--danger); }
+.schedule-item.virtual.running .schedule-name { color: var(--danger); }
+.schedule-item.virtual.running.selected { border-color: var(--danger); box-shadow: 0 0 0 1px var(--danger) inset; }
 .schedule-meta { display: flex; align-items: center; gap: 8px; }
 .schedule-dot { width: 8px; height: 8px; border-radius: 50%; background: #555; flex-shrink: 0; }
 .schedule-item.running .schedule-dot { background: var(--accent-2); box-shadow: 0 0 8px var(--accent-2); }
@@ -477,25 +491,27 @@ body {
     z-index: 1;
 }
 .loader-shine {
-    position: absolute;
+    position: fixed;
     top: 0;
-    left: -80%;
-    width: 50%;
+    left: -60%;
+    width: 30%;
     height: 100%;
     background: linear-gradient(105deg,
         transparent 0%,
-        transparent 30%,
-        rgba(255,255,255,.06) 40%,
-        rgba(255,255,255,.12) 50%,
-        rgba(255,255,255,.06) 60%,
-        transparent 70%,
+        transparent 25%,
+        rgba(255,255,255,.04) 40%,
+        rgba(255,255,255,.08) 50%,
+        rgba(255,255,255,.04) 60%,
+        transparent 75%,
         transparent 100%);
-    animation: loader-shine 2.2s cubic-bezier(.4,0,.2,1) infinite;
+    animation: loader-shine 2.5s cubic-bezier(.4,0,.2,1) infinite;
+    z-index: 1001;
+    pointer-events: none;
 }
 @keyframes loader-shine {
-    0% { left: -80%; opacity: 0; }
-    15% { opacity: 1; }
-    85% { opacity: 1; }
+    0% { left: -60%; opacity: 0; }
+    12% { opacity: 1; }
+    88% { opacity: 1; }
     100% { left: 120%; opacity: 0; }
 }
 .loader-title {
@@ -832,6 +848,7 @@ body {
         white-space: nowrap;
         font-size: 12px;
         flex-shrink: 0;
+        -webkit-tap-highlight-color: transparent;
     }
     .schedule-count { padding-left: 0; white-space: nowrap; }
 
@@ -936,11 +953,16 @@ body {
     .slide-up-enter-from,
     .slide-up-leave-to { transform: translateY(100%); }
 
-    .task-item { padding: 8px 10px; gap: 6px; font-size: 12px; }
+    .task-item { padding: 8px 10px; gap: 6px; font-size: 12px; -webkit-tap-highlight-color: transparent; }
     .task-time { font-size: 10px; padding: 1px 5px; }
     .task-name { font-size: 12px; }
     .task-type-badge { font-size: 10px; padding: 1px 5px; }
     .drag-handle { font-size: 12px; }
+
+    /* 移动端全局消除点击方框 */
+    .btn-primary, .btn-ghost, .btn-danger-ghost, button {
+        -webkit-tap-highlight-color: transparent;
+    }
 
     /* 弹窗 */
     .el-dialog { width: calc(100vw - 20px) !important; margin: 10px !important; }

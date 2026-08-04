@@ -55,14 +55,14 @@
             <div class="schedule-rail">
                 <div class="schedule-rail-head">
                     <span class="section-title">日程表</span>
-                    <button class="btn-ghost" title="新建日程表" @click="createSchedule">＋</button>
+                    <button class="btn-primary btn-sm" @click="createSchedule">＋ 新建</button>
                 </div>
                 <div class="schedule-list">
-                    <div v-if="schedules.length === 0" class="empty-hint">暂无日程表，点击 ＋ 创建</div>
-                    <div v-for="s in schedules"
+                    <div v-if="scheduleList.length <= 1" class="empty-hint">暂无日程表，点击 ＋ 创建</div>
+                    <div v-for="s in scheduleList"
                          :key="s.id"
                          class="schedule-item"
-                         :class="{ running: s.active, selected: s.id === currentScheduleId }"
+                         :class="{ running: s.active, selected: s.id === currentScheduleId, virtual: s.virtual }"
                          @click="selectSchedule(s.id)"
                          @dblclick="activateSchedule(s.id)"
                          @contextmenu.prevent="deleteSchedule(s.id)">
@@ -70,7 +70,7 @@
                             <span class="schedule-dot"></span>
                             <span class="schedule-name">{{ s.name }}</span>
                         </div>
-                        <span class="schedule-count">{{ s.taskCount }} 任务</span>
+                        <span class="schedule-count" v-if="!s.virtual">{{ s.taskCount }} 任务</span>
                     </div>
                 </div>
             </div>
@@ -316,9 +316,9 @@
                     <div class="dash-card-body">
                         <div class="dash-card-label">网络</div>
                         <div class="dash-card-value">
-                            <span class="dash-big">{{ dashNetDown }}</span><span class="dash-unit"> ↓</span>
-                            <span style="margin:0 6px;color:var(--text-dim)">|</span>
-                            <span class="dash-big">{{ dashNetUp }}</span><span class="dash-unit"> ↑</span>
+                            <span class="dash-big">↓ {{ dashNetDown }}</span>
+                            <span style="margin:0 6px;color:var(--text-dim);font-size:18px">|</span>
+                            <span class="dash-big">↑ {{ dashNetUp }}</span>
                         </div>
                         <div class="dash-card-sub">{{ dashNetworks.length }} 个活动接口</div>
                     </div>
@@ -456,7 +456,7 @@
 <script src="/vendor/index.full.min.js"></script>
 <script src="/vendor/dayjs.min.js"></script>
 <script src="/js/api.js"></script>
-<script>window.__APP_HTML_VERSION__ = '20260804.10';</script>
-<script src="/js/app.js?v=20260804.10"></script>
+<script>window.__APP_HTML_VERSION__ = '20260804.11';</script>
+<script src="/js/app.js?v=20260804.11"></script>
 </body>
 </html>

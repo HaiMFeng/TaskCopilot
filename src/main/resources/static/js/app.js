@@ -5,7 +5,7 @@ const {createApp, ref, reactive, computed, onMounted, onBeforeUnmount, nextTick}
 const {ElMessage, ElMessageBox} = ElementPlus;
 
 // 前端 JS 版本号（修改后请同步递增，便于辨识加载版本）
-const APP_JS_VERSION = '20260804.10';
+const APP_JS_VERSION = '20260804.11';
 
 /** 任务顶级字段（不放进 config，提交时提升到 payload 顶层） */
 const TOP_LEVEL_FIELDS = new Set(['command', 'workingDir', 'timeoutSeconds']);
@@ -487,6 +487,7 @@ createApp({
         const selectedTask = ref(null);
 
         const currentScheduleName = computed(() => {
+            if (currentScheduleId.value === 0) return '不启用 · 任务列表';
             const s = schedules.value.find((x) => x.id === currentScheduleId.value);
             return s ? s.name + ' · 任务列表' : '任务列表';
         });
@@ -496,13 +497,16 @@ createApp({
             if (!info) return '—';
             if (info.schedulerError) return `运行错误 · ${info.scheduledCount} 个任务`;
             if (info.schedulerPaused) return '已暂停';
+            if (info.scheduledCount === 0) return '未运行';
             return `运行中 · ${info.scheduledCount} 个任务`;
         });
         const schedulerPillClass = computed(() => {
             const info = schedulerInfo.value;
             if (!info) return '';
             if (info.schedulerError) return 'error';
-            return info.schedulerPaused ? 'paused' : 'running';
+            if (info.schedulerPaused) return 'paused';
+            if (info.scheduledCount === 0) return 'idle';
+            return 'running';
         });
 
         const statusClass = (t) => (!t.lastStatus ? 'idle' : (t.lastStatus === 'SUCCESS' ? 'ok' : 'fail'));
@@ -539,6 +543,16 @@ createApp({
         });
 
         /* ---------------- 日程表 ---------------- */
+        // 虚拟「不启用」日程表（id=0，不存数据库）
+        const NO_SCHEDULE = reactive({id: 0, name: '不启用', taskCount: 0, active: false, virtual: true});
+        const scheduleList = computed(() => {
+            const list = schedules.value.slice();
+            // 当没有任何日程表处于 active 时，「不启用」亮起
+            NO_SCHEDULE.active = !schedules.value.some((s) => s.active);
+            list.unshift(NO_SCHEDULE);
+            return list;
+        });
+
         async function loadSchedules() {
             schedules.value = await API.listSchedules();
         }
@@ -548,6 +562,10 @@ createApp({
             currentScheduleId.value = id;
             selectedTaskId.value = null;
             selectedTask.value = null;
+            if (id === 0) {
+                tasks.value = [];
+                return;
+            }
             await loadTasks();
         }
 
@@ -569,16 +587,24 @@ createApp({
 
         async function activateSchedule(id) {
             try {
-                await API.activateSchedule(id);
-                ElMessage.success('已切换运行日程表');
+                if (id === 0) {
+                    await API.deactivateSchedule();
+                    ElMessage.success('已停用所有日程表');
+                } else {
+                    await API.activateSchedule(id);
+                    ElMessage.success('已切换运行日程表');
+                }
                 await loadSchedules();
                 await selectSchedule(id);
+                await loadSchedulerState(); // 刷新右上角状态
+                refreshDashboard();         // 刷新仪表盘数据
             } catch (e) {
                 ElMessage.error(e.message);
             }
         }
 
         async function deleteSchedule(id) {
+            if (id === 0) return;
             const sch = schedules.value.find((s) => s.id === id);
             try {
                 const count = sch ? sch.taskCount : 0;
@@ -953,6 +979,12 @@ createApp({
             timers.push(setInterval(loadSchedulerState, 15000));
             timers.push(setInterval(pollTasks, 8000));
 
+            // 填充右下角版本标识
+            const htmlVer = document.getElementById('htmlVer');
+            const jsVer = document.getElementById('jsVer');
+            if (htmlVer) htmlVer.textContent = window.__APP_HTML_VERSION__ || '?';
+            if (jsVer) jsVer.textContent = APP_JS_VERSION;
+
             // 等待仪表盘首次数据就绪后再关闭遮罩
             try { await dashReady; } catch (e) { /* 即使失败也继续 */ }
             loading.value = false;
@@ -998,7 +1030,7 @@ createApp({
         return {
             loading,
             modes, mode, thumbStyle, setModeRef, switchMode,
-            schedules, currentScheduleId, currentScheduleName,
+            schedules, scheduleList, currentScheduleId, currentScheduleName,
             tasks, selectedTaskId, selectedTask, taskTypes,
             isMobile, showMobileDetail, selectTaskMobile, closeMobileDetail,
             form, createForm, detailSchema, createSchema,

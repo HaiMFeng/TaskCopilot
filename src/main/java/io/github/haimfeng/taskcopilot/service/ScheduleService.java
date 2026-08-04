@@ -139,6 +139,15 @@ public class ScheduleService {
     }
 
     /**
+     * 停用所有日程表（不启用任何日程表）。
+     */
+    @Transactional
+    public void deactivate() {
+        deactivateAll();
+        taskScheduler.reloadAll();
+    }
+
+    /**
      * 返回当前生效的日程表；若不存在则确保存在一个默认日程表。
      */
     @Transactional

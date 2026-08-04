@@ -29,6 +29,7 @@ const API = (() => {
         createSchedule: (payload) => request('POST', '/schedules', payload),
         updateSchedule: (id, payload) => request('PUT', `/schedules/${id}`, payload),
         activateSchedule: (id) => request('POST', `/schedules/${id}/activate`),
+        deactivateSchedule: () => request('POST', '/schedules/deactivate'),
         deleteSchedule: (id) => request('DELETE', `/schedules/${id}`),
 
         // 任务

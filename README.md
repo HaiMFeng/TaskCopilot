@@ -7,12 +7,14 @@
 ## 特性
 - **日程表（Schedule）分组**：多个日程表，同一时间仅一个运行；切换运行日程表时其余自动停用。
 - **每日定时任务**：所有任务均按每日指定时间执行（调度维度），触发配置由后端 schema 驱动、前端动态渲染。
-- **三种任务类型（功能类别）**：
+- **六种任务类型（功能类别）**：
   - **运行指令（RUN_COMMAND）**：执行 Shell/系统命令，支持命令内容、工作目录、超时。
-  - **打开应用（OPEN_APP）**：启动预置或自定义应用（Windows `start` / macOS `open` / Linux `xdg-open`）。
-  - **发送请求（HTTP_REQUEST）**：发起 HTTP 调用（GET/POST 等），适合健康检查、Webhook、curl 类场景。
+  - **打开应用（OPEN_APP）**：启动桌面程序（Windows `start` / macOS `open` / Linux `xdg-open`），路径支持手动输入+校验。
+  - **发送请求（HTTP_REQUEST）**：发起 HTTP 调用（GET/POST 等），适合健康检查、Webhook 场景。
+  - **结束进程（KILL_PROCESS）**：按进程名终止指定程序，支持精确/模糊匹配、正常/强制终止，可从运行中进程列表选择。
+  - **系统指令（SYSTEM_COMMAND）**：定时关机、重启、休眠、锁屏，支持延时执行。
   - 每种类型拥有专属配置表单，切换类型时界面自动切换；预制类型旨在简化指令编写。
-- **左右分栏界面**：左栏任务列表（拖拽排序、启用开关），右栏选中任务详情编辑、立即执行与日志查看。
+- **左右分栏界面**：左栏任务列表（按触发时间排序、同时间任务可拖拽、启用开关），右栏选中任务详情编辑、立即执行与日志查看。
 - **新建任务弹窗**：不干扰主页面布局。
 - **全局暂停/恢复**：维护时一键冻结所有定时触发。
 - **低资源占用**：Spring 虚拟线程 + 信号量限流，调度线程池仅 2 线程。
@@ -79,7 +81,7 @@ src/main/
 | POST | `/api/schedules` | 创建 |
 | PUT | `/api/schedules/{id}` | 更新 |
 | POST | `/api/schedules/{id}/activate` | 切换为运行中（互斥） |
-| DELETE | `/api/schedules/{id}` | 删除（其下任务解除归属） |
+| DELETE | `/api/schedules/{id}` | 删除（级联删除其下任务及日志） |
 
 ### 任务
 | 方法 | 路径 | 说明 |
@@ -98,11 +100,13 @@ src/main/
 |------|------|------|
 | GET | `/api/task-types` | 任务类型及配置 schema |
 | GET | `/api/system/info` | 系统信息 |
+| GET | `/api/system/processes` | 运行中进程名列表 |
+| POST | `/api/system/check-path` | 校验应用路径 |
 | POST | `/api/system/scheduler/pause` | 全局暂停 |
 | POST | `/api/system/scheduler/resume` | 全局恢复 |
 
 ## 扩展指引
-- **新增任务类型**：实现 `TaskTypeHandler` 接口（提供 `displayName`、`configSchema`、`nextExecution`、`validate`、`summary`），用 `@Component` 注册即可。调度器、Service、前端均无需改动。
+- **新增任务类型**：实现 `TaskTypeHandler` 接口（提供 `code`、`displayName`、`configSchema`、`validate`、`summary`、`execute`），用 `@Component` 注册即可。调度器、Service、前端均无需改动。
 - **新增日程表 / 任务属性**：修改对应 `domain` 实体与 DTO，JPA `ddl-auto=update` 会自动演进表结构（生产环境建议改用 Flyway）。
 
 ## 路线图

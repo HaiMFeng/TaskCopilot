@@ -913,8 +913,9 @@ body {
         min-width: 0;
         overflow-x: auto;
         scrollbar-width: none;
-        /* 避免胶囊圆角在滚动裁切时断裂、末项贴边 */
-        padding: 0 2px;
+        /* 滚动容器左右内边距，避免胶囊圆角裁切断裂、末项贴边；
+           内边距加在容器而非按钮上，不影响按钮 offsetWidth，thumb 不会偏移 */
+        padding: 0 4px;
     }
     .mode-switch-scroll::-webkit-scrollbar { display: none; }
     .mode-switch {
@@ -923,7 +924,6 @@ body {
         width: max-content;
     }
     .mode-option { padding: 6px 12px; font-size: 12px; }
-    .mode-option:last-child { padding-right: 16px; }
     .state-pill { font-size: 11px; padding: 4px 8px; line-height: 1; }
 
     /* 主区域：禁止横向溢出，日程表视图纵向排列 */

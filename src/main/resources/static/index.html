@@ -413,6 +413,47 @@
             </div>
         </section>
 
+        <!-- ===== 终端（只读输出 + 指令输入） ===== -->
+        <section v-show="mode === 'terminal'" class="mode-view terminal-view">
+            <div class="terminal-toolbar">
+                <div class="terminal-toolbar-left">
+                    <i class="fa-solid fa-terminal"></i>
+                    <span>终端</span>
+                </div>
+                <div class="terminal-toolbar-right">
+                    <el-select v-model="termShell" size="small" :disabled="termRunning" style="width:120px">
+                        <el-option value="CMD">CMD</el-option>
+                        <el-option value="PowerShell">PowerShell</el-option>
+                    </el-select>
+                    <button v-if="!termRunning" class="btn-primary btn-sm" @click="startTerminal">
+                        <i class="fa-solid fa-play"></i> 启动
+                    </button>
+                    <button v-else class="btn-danger-ghost btn-sm" @click="stopTerminal">
+                        <i class="fa-solid fa-stop"></i> 停止
+                    </button>
+                </div>
+            </div>
+            <div id="terminal-output" class="terminal-output" ref="termOutputRef"></div>
+            <div class="terminal-input-bar">
+                <input
+                    v-model="termInput"
+                    class="terminal-cmd-input"
+                    type="text"
+                    :disabled="!termRunning"
+                    :placeholder="termRunning ? ('在 ' + termShell + ' 中输入命令，回车发送') : '请先点击「启动」连接终端'"
+                    @keydown.enter="sendTerminalCommand"
+                    autocomplete="off"
+                    spellcheck="false"
+                />
+                <button class="btn-primary btn-sm" :disabled="!termRunning" @click="sendTerminalCommand">
+                    <i class="fa-solid fa-paper-plane"></i> 发送
+                </button>
+                <button class="btn-ghost btn-sm" :disabled="!termRunning || !termCanInterrupt" @click="sendTerminalInterrupt" title="发送 Ctrl+C 中断">
+                    <i class="fa-solid fa-stop-circle"></i> 中断
+                </button>
+            </div>
+        </section>
+
         <!-- ===== 文件管理器占位 ===== -->
         <section v-show="mode === 'files'" class="mode-view">
             <div class="placeholder-card">
@@ -468,7 +509,7 @@
 <script src="/vendor/index.full.min.js"></script>
 <script src="/vendor/dayjs.min.js"></script>
 <script src="/js/api.js"></script>
-<script>window.__APP_HTML_VERSION__ = '20260804.14';</script>
-<script src="/js/app.js?v=20260804.14"></script>
+<script>window.__APP_HTML_VERSION__ = '20260804.20';</script>
+<script src="/js/app.js?v=20260804.20"></script>
 </body>
 </html>

@@ -5,7 +5,7 @@ const {createApp, ref, reactive, computed, onMounted, onBeforeUnmount, nextTick}
 const {ElMessage, ElMessageBox} = ElementPlus;
 
 // 前端 JS 版本号（修改后请同步递增，便于辨识加载版本）
-const APP_JS_VERSION = '20260804.14';
+const APP_JS_VERSION = '20260804.20';
 
 /** 任务顶级字段（不放进 config，提交时提升到 payload 顶层） */
 const TOP_LEVEL_FIELDS = new Set(['command', 'workingDir', 'timeoutSeconds']);
@@ -309,6 +309,7 @@ createApp({
         const modes = [
             {key: 'dashboard', label: '仪表盘', shortLabel: '仪表'},
             {key: 'schedule', label: '日程表', shortLabel: '日程'},
+            {key: 'terminal', label: '终端', shortLabel: '终端'},
             {key: 'files', label: '文件管理器', shortLabel: '文件'},
         ];
         const mode = ref('dashboard');
@@ -1015,6 +1016,98 @@ createApp({
             loading.value = false;
         });
 
+        /* ---------------- 终端（只读输出 + 指令输入） ---------------- */
+        const termRunning = ref(false);
+        const termShell = ref('CMD');
+        const termInput = ref('');
+        const termCanInterrupt = ref(false);
+        const termOutputRef = ref(null);
+        let termSocket = null;
+        let termBuf = '';
+        let termHasColor = false;
+
+        function appendTermOutput(text) {
+            termBuf += text;
+            if (text.includes('\x1b')) termHasColor = true;
+            const el = termOutputRef.value;
+            if (!el) return;
+            // 去掉 ANSI 转义序列后做纯文本展示，避免乱码控制字符
+            const clean = stripAnsi(text);
+            el.textContent += clean;
+            // 自动滚动到底部
+            el.scrollTop = el.scrollHeight;
+        }
+
+        function stripAnsi(str) {
+            // 匹配 ANSI 转义序列（CSI 等）并移除
+            return str.replace(/\x1b\[[0-9;?]*[ -/]*[@-~]/g, '');
+        }
+
+        function clearTermOutput() {
+            termBuf = '';
+            termHasColor = false;
+            const el = termOutputRef.value;
+            if (el) el.textContent = '';
+        }
+
+        function startTerminal() {
+            if (termSocket) { try { termSocket.close(); } catch (_) {} termSocket = null; }
+            clearTermOutput();
+            const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const qs = termShell.value === 'PowerShell' ? '?powershell' : '';
+            termSocket = new WebSocket(proto + '//' + location.host + '/ws/terminal' + qs);
+
+            termSocket.onopen = () => {
+                console.log('WebSocket 终端已连接');
+                termRunning.value = true;
+                termCanInterrupt.value = true;
+                appendTermOutput('[已连接到 ' + termShell.value + ' 终端，输入命令后回车发送]\r\n');
+            };
+            termSocket.onmessage = (e) => {
+                const data = typeof e.data === 'string' ? e.data : new TextDecoder().decode(e.data);
+                appendTermOutput(data);
+            };
+            termSocket.onclose = () => {
+                console.log('WebSocket 终端断开');
+                termRunning.value = false;
+                termCanInterrupt.value = false;
+                appendTermOutput('\r\n[终端已断开]\r\n');
+            };
+            termSocket.onerror = (e) => {
+                console.error('WebSocket 终端错误', e);
+                termRunning.value = false;
+                termCanInterrupt.value = false;
+                ElMessage.error('终端连接失败');
+            };
+        }
+
+        function stopTerminal() {
+            if (termSocket) { try { termSocket.close(); } catch (_) {} termSocket = null; }
+            termRunning.value = false;
+            termCanInterrupt.value = false;
+            appendTermOutput('\r\n[已停止]\r\n');
+        }
+
+        function sendTerminalCommand() {
+            const cmd = termInput.value;
+            if (!termSocket || termSocket.readyState !== WebSocket.OPEN) {
+                ElMessage.warning('终端未连接');
+                return;
+            }
+            // 不在此处自行回显命令：cmd/powershell 会把输入回显到 stdout，
+            // 后端转发回来后由 appendTermOutput 显示，避免命令重复出现。
+            termSocket.send(cmd + '\r\n');
+            termInput.value = '';
+        }
+
+        function sendTerminalInterrupt() {
+            if (!termSocket || termSocket.readyState !== WebSocket.OPEN) return;
+            // 发送 Ctrl+C (ETX 0x03) 中断当前命令
+            termSocket.send('\x03');
+            appendTermOutput('^C\r\n');
+        }
+
+
         function copyVersions() {
             const htmlV = window.__APP_HTML_VERSION__ || '?';
             const text = 'HTML ' + htmlV + '  JS ' + APP_JS_VERSION;
@@ -1075,6 +1168,8 @@ createApp({
             dashMemUsed, dashMemTotal, dashMemPercent,
             dashDiskFree, dashDiskTotal, dashDiskPercent,
             dashNetDown, dashNetUp, dashUptime, copyVersions,
+            termRunning, termShell, termInput, termCanInterrupt, termOutputRef,
+            startTerminal, stopTerminal, sendTerminalCommand, sendTerminalInterrupt,
             taskTime, taskMinute,
             fmtTime,
         };

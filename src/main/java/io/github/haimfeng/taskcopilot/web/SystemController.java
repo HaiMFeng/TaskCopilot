@@ -432,7 +432,9 @@ public class SystemController {
     public Map<String, String> updateDisplayName(@org.springframework.web.bind.annotation.RequestBody Map<String, String> body) {
         String name = body.getOrDefault("name", "").trim();
         if (name.isEmpty()) name = "USER";
-        appConfigRepository.save(new AppConfig("displayName", name));
+        AppConfig cfg = appConfigRepository.findById("displayName").orElse(new AppConfig("displayName", name));
+        cfg.setValue(name);
+        appConfigRepository.save(cfg);
         cachedDisplayName = name;
         return Map.of("name", name);
     }

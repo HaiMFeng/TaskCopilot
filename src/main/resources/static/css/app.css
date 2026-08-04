@@ -942,6 +942,12 @@ body {
     .mode-select-mobile .el-select { width: 100%; }
     .state-pill { font-size: 11px; padding: 4px 8px; line-height: 1; }
 
+    /* 移动端顶部选择框已显示当前界面名，隐藏各视图内重复的界面标题 */
+    .schedule-rail-head .section-title { display: none; }
+    .terminal-toolbar-left span { display: none; }
+    .screen-toolbar-left > span:not(.screen-meta) { display: none; }
+    .placeholder-card h2 { display: none; }
+
     /* 主区域：禁止横向溢出，日程表视图纵向排列 */
     #mainView { overflow: hidden; }
     .mode-view {

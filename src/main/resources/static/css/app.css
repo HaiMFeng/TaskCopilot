@@ -416,8 +416,10 @@ body {
 .btn-primary:disabled { opacity: .4; cursor: not-allowed; }
 .btn-ghost { background: transparent; color: var(--text); }
 .btn-ghost:hover { background: var(--bg-input); }
+.btn-ghost:disabled { opacity: .4; cursor: not-allowed; }
 .btn-danger-ghost { background: transparent; color: var(--danger); border-color: rgba(255, 93, 93, .4); }
 .btn-danger-ghost:hover { background: rgba(255, 93, 93, .1); }
+.btn-danger-ghost:disabled { opacity: .4; cursor: not-allowed; }
 
 /* ---------- 弹窗 ---------- */
 .modal-overlay {
@@ -450,7 +452,7 @@ body {
 
 /* ---------- 版本标识 ---------- */
 .version-badge {
-    position: fixed; right: 12px; bottom: 10px; z-index: 60;
+    position: fixed; left: 12px; bottom: 10px; z-index: 60;
     display: flex; gap: 10px; align-items: center;
     font-size: 11px; line-height: 1; color: var(--text-muted);
     background: var(--bg-raised); border: 1px solid var(--border);
@@ -1075,7 +1077,11 @@ body {
     .el-dialog { width: calc(100vw - 20px) !important; margin: 10px !important; }
 
     /* 版本标识 */
-    .version-badge { right: 6px; bottom: 6px; font-size: 10px; padding: 3px 6px; gap: 6px; }
+    .version-badge { left: 6px; bottom: 6px; font-size: 10px; padding: 3px 6px; gap: 6px; }
+
+    /* 终端输入栏：移动端按钮只显示图标，节省空间 */
+    .terminal-input-bar .btn-label { display: none; }
+    .terminal-input-bar .btn-sm { padding-left: 10px; padding-right: 10px; }
 
     /* 占位卡片 */
     .placeholder-icon { font-size: 32px; }

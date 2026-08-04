@@ -446,10 +446,10 @@
                     spellcheck="false"
                 />
                 <button class="btn-primary btn-sm" :disabled="!termRunning" @click="sendTerminalCommand">
-                    <i class="fa-solid fa-paper-plane"></i> 发送
+                    <i class="fa-solid fa-paper-plane"></i> <span class="btn-label">发送</span>
                 </button>
-                <button class="btn-ghost btn-sm" :disabled="!termRunning || !termCanInterrupt" @click="sendTerminalInterrupt" title="发送 Ctrl+C 中断">
-                    <i class="fa-solid fa-stop-circle"></i> 中断
+                <button class="btn-ghost btn-sm" :disabled="!termRunning" @click="sendTerminalInterrupt" title="发送 Ctrl+C 中断">
+                    <i class="fa-solid fa-stop-circle"></i> <span class="btn-label">中断</span>
                 </button>
             </div>
         </section>
@@ -498,8 +498,8 @@
     <el-dialog v-model="historyVisible" title="执行历史" width="720px" append-to-body>
         <pre class="result-output history-output">{{ historyText }}</pre>
     </el-dialog>
-    <!-- 版本标识：点击复制版本号 -->
-    <div class="version-badge" @click="copyVersions" title="点击复制版本号">
+    <!-- 版本标识：点击复制版本号（终端模式下隐藏，避免遮挡底部输入栏按钮） -->
+    <div class="version-badge" v-show="mode !== 'terminal'" @click="copyVersions" title="点击复制版本号">
         <span>HTML <b id="htmlVer">--</b></span>
         <span>JS <b id="jsVer">--</b></span>
     </div>
@@ -509,7 +509,7 @@
 <script src="/vendor/index.full.min.js"></script>
 <script src="/vendor/dayjs.min.js"></script>
 <script src="/js/api.js"></script>
-<script>window.__APP_HTML_VERSION__ = '20260804.20';</script>
-<script src="/js/app.js?v=20260804.20"></script>
+<script>window.__APP_HTML_VERSION__ = '20260804.21';</script>
+<script src="/js/app.js?v=20260804.21"></script>
 </body>
 </html>

@@ -18,13 +18,13 @@
 - **新建任务弹窗**：不干扰主页面布局。
 - **全局暂停/恢复**：维护时一键冻结所有定时触发。
 - **低资源占用**：Spring 虚拟线程 + 信号量限流，调度线程池仅 2 线程。
-- **零前端构建**：原生 HTML/CSS/JS 置于 `resources/static`，开箱即用、可离线；API 层已隔离，后续可平滑迁移到 Vue + Vite。
+- **零前端构建**：Vue 3 + Element Plus + Font Awesome 以本地静态资源（`resources/static/vendor`、`webfonts`）引入，开箱即用、可离线；API 层已隔离，后续可平滑迁移到 Vue + Vite。
 
 ## 技术栈
 | 层 | 选型 |
 |----|------|
 | 后端 | Spring Boot 4.1.0 · JDK 21（虚拟线程）· Spring Data JPA · H2 · Jackson 3 |
-| 前端 | 原生 HTML/CSS/JS（后续可换 Vue 3 + Vite） |
+| 前端 | Vue 3 + Element Plus（经 `/vendor` 本地引入，无需 CDN/构建）+ Font Awesome 图标 |
 | 构建 | Maven（`./mvnw`） |
 
 ## 快速开始
@@ -115,4 +115,15 @@ src/main/
 - **M3**：测试、文档、简单认证、Docker 支持（可选）。
 
 ## 许可证
-内部项目，详见具体授权说明。
+本项目基于 **MIT License** 开源。详见仓库根目录的 [`LICENSE`](./LICENSE) 文件。
+> 个人项目，欢迎学习、使用与扩展功能；**请勿用于商业用途**。
+
+## 致谢
+- **Vue 3** —— 渐进式前端框架，本项目 UI 的响应式基础。
+- **Element Plus** —— 基于 Vue 3 的组件库（消息提示、对话框、选择器等），开箱即用的桌面级体验。
+- **Font Awesome** —— 丰富的图标资源，为各界面提供一致的视觉标识（仪表盘、日程表、终端、屏幕、文件管理器等）。
+- **Spring Boot / Spring Data JPA / H2 / Lombok** —— 稳健的后端与持久化底座。
+- **CodeBuddy** —— 由腾讯开发的 AI 编程助手。本项目的界面重构、功能开发（屏幕监视、移动端适配、日程表互斥激活等）与文档整理均在 CodeBuddy 的协作下完成，特此感谢。
+
+---
+⏱ TaskCopilot · 让无屏小主机的定时任务管理更简单。

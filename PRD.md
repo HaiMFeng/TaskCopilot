@@ -57,7 +57,7 @@
 
 ## 4. 技术栈
 - **后端**：Spring Boot 4.1.0 + JDK 21（虚拟线程） + Spring Data JPA + H2 + Jackson 3
-- **前端**：原生 HTML/CSS/JS（无构建依赖，置于 `resources/static`），API 层已封装隔离，后续可平滑迁移至 Vue 3 + Vite。
+- **前端**：Vue 3 + Element Plus + Font Awesome（经 `resources/static/vendor`、`webfonts` 本地引入，无 CDN、无构建步骤），API 层已封装隔离，后续可平滑迁移至 Vue 3 + Vite。
 - **构建**：Maven（`./mvnw`），前端静态文件由 Spring Boot 直接托管。
 
 ## 5. 数据模型（核心表）
@@ -146,3 +146,4 @@
 - 默认任务超时 60s，并发上限 5 个。
 - 初期无用户认证（信任内网），后期可加 Basic Auth。
 - H2 当前 `ddl-auto=update`，正式部署建议改用 Flyway 管理表结构。
+- **许可证**：本项目基于 MIT License 开源（详见仓库根目录 `LICENSE`）。个人项目，欢迎学习、使用与扩展；请勿用于商业用途。

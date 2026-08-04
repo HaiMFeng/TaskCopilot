@@ -18,4 +18,8 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
     List<Task> findByScheduleIdAndEnabledTrueOrderBySortOrderAscIdAsc(Long scheduleId);
 
     long countByScheduleId(Long scheduleId);
+
+    long countByEnabledTrue();
+
+    long count();
 }

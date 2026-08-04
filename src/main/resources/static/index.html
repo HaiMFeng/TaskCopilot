@@ -33,8 +33,8 @@
     </header>
 
     <main id="mainView">
-        <!-- ===== 每日任务视图 ===== -->
-        <section v-show="mode === 'daily'" class="mode-view">
+        <!-- ===== 日程表视图 ===== -->
+        <section v-show="mode === 'schedule'" class="mode-view">
             <div class="schedule-rail">
                 <div class="schedule-rail-head">
                     <span class="section-title">日程表</span>
@@ -155,13 +155,161 @@
             </div>
         </section>
 
-        <!-- ===== 立即任务占位 ===== -->
-        <section v-show="mode === 'immediate'" class="mode-view">
+        <!-- ===== 仪表盘 ===== -->
+        <section v-show="mode === 'dashboard'" class="mode-view dashboard-view">
+            <!-- 顶栏：大时钟 + 主机/IP信息 -->
+            <div class="dash-topbar">
+                <div>
+                    <div class="dash-time">{{ dashTime }}</div>
+                    <div class="dash-date">{{ dashDate }}</div>
+                </div>
+                <div class="dash-host-info">
+                    <div class="dash-host">{{ dashInfo.hostname || '—' }}</div>
+                    <div class="dash-ipport" v-if="dashNetConfig.localIp">
+                        {{ dashNetConfig.localIp }}:{{ dashInfo.serverPort || '—' }}
+                    </div>
+                </div>
+            </div>
+
+            <!-- 指标卡片行 -->
+            <div class="dash-cards">
+                <!-- CPU -->
+                <div class="dash-card">
+                    <div class="dash-card-icon cpu-icon">🖥</div>
+                    <div class="dash-card-body">
+                        <div class="dash-card-label">CPU</div>
+                        <div class="dash-card-value">
+                            <span class="dash-big">{{ dashInfo.cpuLoad != null ? dashInfo.cpuLoad.toFixed(1) : '—' }}</span><span class="dash-unit">%</span>
+                        </div>
+                        <div class="dash-bar"><div class="dash-bar-fill cpu-fill" :style="{width: (dashInfo.cpuLoad || 0) + '%'}"></div></div>
+                        <div class="dash-card-sub">{{ dashInfo.availableProcessors || '—' }} 核心</div>
+                    </div>
+                </div>
+
+                <!-- 内存 -->
+                <div class="dash-card">
+                    <div class="dash-card-icon mem-icon">🧠</div>
+                    <div class="dash-card-body">
+                        <div class="dash-card-label">内存</div>
+                        <div class="dash-card-value">
+                            <span class="dash-big">{{ dashMemUsed }}</span><span class="dash-unit"> / {{ dashMemTotal }} GB</span>
+                        </div>
+                        <div class="dash-bar"><div class="dash-bar-fill mem-fill" :style="{width: dashMemPercent + '%'}"></div></div>
+                        <div class="dash-card-sub">JVM {{ dashInfo.jvmUsedMb || '—' }} MB</div>
+                    </div>
+                </div>
+
+                <!-- 磁盘 -->
+                <div class="dash-card">
+                    <div class="dash-card-icon disk-icon">💾</div>
+                    <div class="dash-card-body">
+                        <div class="dash-card-label">磁盘</div>
+                        <div class="dash-card-value">
+                            <span class="dash-big">{{ dashDiskFree }}</span><span class="dash-unit"> / {{ dashDiskTotal }} GB 可用</span>
+                        </div>
+                        <div class="dash-bar"><div class="dash-bar-fill disk-fill" :style="{width: dashDiskPercent + '%'}"></div></div>
+                        <div class="dash-card-sub">工作目录</div>
+                    </div>
+                </div>
+
+                <!-- 网络 -->
+                <div class="dash-card">
+                    <div class="dash-card-icon net-icon">🌐</div>
+                    <div class="dash-card-body">
+                        <div class="dash-card-label">网络</div>
+                        <div class="dash-card-value">
+                            <span class="dash-big">{{ dashNetDown }}</span><span class="dash-unit"> ↓</span>
+                            <span style="margin:0 6px;color:var(--text-dim)">|</span>
+                            <span class="dash-big">{{ dashNetUp }}</span><span class="dash-unit"> ↑</span>
+                        </div>
+                        <div class="dash-card-sub">{{ dashNetworks.length }} 个活动接口</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 第二行：网络详情 + 日程表状态 -->
+            <div class="dash-row2">
+                <!-- 网络配置 -->
+                <div class="dash-panel">
+                    <div class="dash-panel-title">🌐 网络配置</div>
+                    <div class="dash-panel-body">
+                        <div class="dash-stat-row">
+                            <span class="dash-stat-label">本机地址</span>
+                            <span class="dash-stat-val active">{{ dashNetConfig.localIp || '—' }}:{{ dashInfo.serverPort || '—' }}</span>
+                        </div>
+                        <div class="dash-stat-row">
+                            <span class="dash-stat-label">DNS</span>
+                            <span class="dash-stat-val">
+                                <template v-if="dashNetConfig.dns && dashNetConfig.dns.length">
+                                    <span v-for="(d, i) in dashNetConfig.dns" :key="i" class="nic-ip" style="margin-left:4px">{{ d }}</span>
+                                </template>
+                                <template v-else>—</template>
+                            </span>
+                        </div>
+                        <div class="dash-stat-row" v-if="dashNetConfig.gateway">
+                            <span class="dash-stat-label">网关</span>
+                            <span class="dash-stat-val">{{ dashNetConfig.gateway }}</span>
+                        </div>
+                        <div class="dash-stat-row" v-if="dashNetConfig.linkSpeed">
+                            <span class="dash-stat-label">链路速度</span>
+                            <span class="dash-stat-val">{{ dashNetConfig.linkSpeed }}</span>
+                        </div>
+                        <div class="dash-stat-row" v-if="dashNetworks.length > 0">
+                            <span class="dash-stat-label">网卡</span>
+                            <span class="dash-stat-val" style="font-size:11px">{{ dashNetworks[0].displayName }}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 日程表 & 任务状态 -->
+                <div class="dash-panel">
+                    <div class="dash-panel-title">⏱ 任务概览</div>
+                    <div class="dash-panel-body">
+                        <div class="dash-stat-row">
+                            <span class="dash-stat-label">运行中日程表</span>
+                            <span class="dash-stat-val" :class="{active: dashDashboard.activeSchedule}">
+                                {{ dashDashboard.activeSchedule ? dashDashboard.activeSchedule.name + '（' + dashDashboard.activeSchedule.taskCount + ' 任务）' : '无' }}
+                            </span>
+                        </div>
+                        <div class="dash-stat-row">
+                            <span class="dash-stat-label">任务总数</span>
+                            <span class="dash-stat-val">{{ dashDashboard.totalTasks ?? '—' }}</span>
+                        </div>
+                        <div class="dash-stat-row">
+                            <span class="dash-stat-label">已启用</span>
+                            <span class="dash-stat-val on">{{ dashDashboard.enabledTasks ?? '—' }}</span>
+                        </div>
+                        <div class="dash-stat-row">
+                            <span class="dash-stat-label">已禁用</span>
+                            <span class="dash-stat-val off">{{ dashDashboard.disabledTasks ?? '—' }}</span>
+                        </div>
+                        <div class="dash-stat-row">
+                            <span class="dash-stat-label">日程表数</span>
+                            <span class="dash-stat-val">{{ dashDashboard.totalSchedules ?? '—' }}</span>
+                        </div>
+                        <div class="dash-stat-row">
+                            <span class="dash-stat-label">调度状态</span>
+                            <span class="dash-stat-val" :class="{warn: dashInfo.schedulerPaused, err: dashInfo.schedulerError}">
+                                {{ dashInfo.schedulerError ? '异常' : (dashInfo.schedulerPaused ? '已暂停' : '运行中') }}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 第三行：运行时长 -->
+            <div class="dash-footer">
+                已运行 {{ dashUptime }}
+            </div>
+        </section>
+
+        <!-- ===== 文件管理器占位 ===== -->
+        <section v-show="mode === 'files'" class="mode-view">
             <div class="placeholder-card">
-                <div class="placeholder-icon">⚡</div>
-                <h2>立即任务</h2>
+                <div class="placeholder-icon">📁</div>
+                <h2>文件管理器</h2>
                 <p>该模块正在建设中，敬请期待。</p>
-                <p class="placeholder-sub">立即任务将支持临时编排、一次性并发执行等能力。</p>
+                <p class="placeholder-sub">文件管理器将支持远程浏览与管理小主机上的文件。</p>
             </div>
         </section>
     </main>
@@ -199,17 +347,18 @@
     <el-dialog v-model="historyVisible" title="执行历史" width="720px" append-to-body>
         <pre class="result-output history-output">{{ historyText }}</pre>
     </el-dialog>
+    <!-- 版本标识：点击复制版本号 -->
+    <div class="version-badge" @click="copyVersions" title="点击复制版本号">
+        <span>HTML <b id="htmlVer">--</b></span>
+        <span>JS <b id="jsVer">--</b></span>
+    </div>
 </div>
 
 <script src="/vendor/vue.global.prod.js"></script>
 <script src="/vendor/index.full.min.js"></script>
+<script src="/vendor/dayjs.min.js"></script>
 <script src="/js/api.js"></script>
 <script>window.__APP_HTML_VERSION__ = '20260804.9';</script>
 <script src="/js/app.js?v=20260804.9"></script>
-    <!-- 版本标识：便于区分 index.html 与 js 的加载版本 -->
-    <div class="version-badge">
-        <span>HTML <b id="htmlVer">--</b></span>
-        <span>JS <b id="jsVer">--</b></span>
-    </div>
 </body>
 </html>

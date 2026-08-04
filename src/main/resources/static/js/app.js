@@ -307,10 +307,11 @@ createApp({
     setup() {
         /* ---------------- 基础状态 ---------------- */
         const modes = [
-            {key: 'daily', label: '每日任务'},
-            {key: 'immediate', label: '立即任务'},
+            {key: 'dashboard', label: '仪表盘'},
+            {key: 'schedule', label: '日程表'},
+            {key: 'files', label: '文件管理器'},
         ];
-        const mode = ref('daily');
+        const mode = ref('schedule');
         const modeRefs = {};
         const thumbStyle = reactive({width: '0px', transform: 'translateX(0px)'});
 
@@ -331,6 +332,94 @@ createApp({
 
         const schedulerInfo = ref(null);
 
+        /* ---------------- 仪表盘 ---------------- */
+        const dashInfo = ref({});
+        const dashDashboard = ref({});
+        const dashNetworks = ref([]);
+        const dashNetConfig = ref({});
+        const dashNetDown = ref('—');
+        const dashNetUp = ref('—');
+
+        const dashTime = ref('');
+        const dashDate = ref('');
+        function _tickDashTime() {
+            const now = dayjs();
+            dashTime.value = now.format('HH:mm:ss');
+            dashDate.value = now.format('YYYY-MM-DD dddd');
+        }
+
+        const dashMemUsed = computed(() => {
+            const mb = dashInfo.value.usedPhysMemMb;
+            if (mb == null) return '—';
+            return mb >= 1024 ? (mb / 1024).toFixed(1) : (mb / 1024).toFixed(2);
+        });
+        const dashMemTotal = computed(() => {
+            const mb = dashInfo.value.totalPhysMemMb;
+            if (mb == null) return '—';
+            return (mb / 1024).toFixed(1);
+        });
+        const dashMemPercent = computed(() => {
+            const u = dashInfo.value.usedPhysMemMb;
+            const t = dashInfo.value.totalPhysMemMb;
+            if (!t || u == null) return 0;
+            return Math.min(100, Math.round((u / t) * 1000) / 10);
+        });
+
+        const dashDiskFree = computed(() => {
+            const gb = dashInfo.value.diskFreeGb;
+            return gb != null ? gb.toFixed(1) : '—';
+        });
+        const dashDiskTotal = computed(() => {
+            const gb = dashInfo.value.diskTotalGb;
+            return gb != null ? gb.toFixed(1) : '—';
+        });
+        const dashDiskPercent = computed(() => {
+            const f = dashInfo.value.diskFreeGb;
+            const t = dashInfo.value.diskTotalGb;
+            if (!t || f == null) return 0;
+            return Math.min(100, Math.round(((t - f) / t) * 1000) / 10);
+        });
+
+        const dashUptime = computed(() => {
+            const s = dashInfo.value.uptimeSeconds;
+            if (s == null) return '—';
+            const d = Math.floor(s / 86400);
+            const h = Math.floor((s % 86400) / 3600);
+            const m = Math.floor((s % 3600) / 60);
+            if (d > 0) return d + ' 天 ' + h + ' 小时 ' + m + ' 分钟';
+            if (h > 0) return h + ' 小时 ' + m + ' 分钟';
+            return m + ' 分钟';
+        });
+
+        async function refreshDashboard() {
+            try {
+                const [info, db, net, netCfg] = await Promise.all([
+                    API.systemInfo(),
+                    API.dashboard(),
+                    API.networkInfo(),
+                    API.networkConfig(),
+                ]);
+                // 后端返回的是瞬时速率（Bytes/sec），直接格式化显示
+                dashNetDown.value = formatBytesPerSec(info.netRxBytesPerSec || 0);
+                dashNetUp.value = formatBytesPerSec(info.netTxBytesPerSec || 0);
+
+                dashInfo.value = info;
+                dashDashboard.value = db;
+                dashNetworks.value = net || [];
+                dashNetConfig.value = netCfg || {};
+                schedulerInfo.value = info;
+            } catch (e) {
+                // 静默，保留上次数据
+            }
+        }
+
+        function formatBytesPerSec(bytesPerSec) {
+            if (bytesPerSec < 0) bytesPerSec = 0;
+            if (bytesPerSec >= 1048576) return (bytesPerSec / 1048576).toFixed(1) + ' MB/s';
+            if (bytesPerSec >= 1024) return (bytesPerSec / 1024).toFixed(1) + ' KB/s';
+            return Math.round(bytesPerSec) + ' B/s';
+        }
+
         /* ---------------- 模式切换滑块 ---------------- */
         function setModeRef(key, el) {
             if (el) modeRefs[key] = el;
@@ -345,6 +434,9 @@ createApp({
             if (mode.value === key) return;
             mode.value = key;
             nextTick(moveThumb);
+            if (key === 'schedule' && currentScheduleId.value) {
+                loadTasks();
+            }
         }
 
         /* ---------------- 表单模型 ---------------- */
@@ -838,12 +930,28 @@ createApp({
             timers.push(setInterval(loadSchedulerState, 15000));
             timers.push(setInterval(pollTasks, 8000));
 
+            // 仪表盘：启动时间 + 首次拉取 + 持续轮询
+            _tickDashTime();
+            timers.push(setInterval(_tickDashTime, 1000));
+            await refreshDashboard();
+            timers.push(setInterval(refreshDashboard, 3000));
+
             // 填充右下角版本标识
             const htmlVer = document.getElementById('htmlVer');
             const jsVer = document.getElementById('jsVer');
             if (htmlVer) htmlVer.textContent = window.__APP_HTML_VERSION__ || '?';
             if (jsVer) jsVer.textContent = APP_JS_VERSION;
         });
+
+        function copyVersions() {
+            const htmlV = window.__APP_HTML_VERSION__ || '?';
+            const text = 'HTML ' + htmlV + '  JS ' + APP_JS_VERSION;
+            navigator.clipboard.writeText(text).then(() => {
+                ElMessage.success('已复制：' + text);
+            }).catch(() => {
+                ElMessage.error('复制失败');
+            });
+        }
 
         onBeforeUnmount(() => {
             timers.forEach(clearInterval);
@@ -866,6 +974,11 @@ createApp({
             selectTask, toggleTask, saveDetail, runTask, viewHistory, deleteTask,
             openCreateTask, submitCreate,
             dragIndex, onDragStart, onDragOver, onDragEnd, canDrag,
+            // 仪表盘
+            dashInfo, dashDashboard, dashNetworks, dashNetConfig, dashTime, dashDate,
+            dashMemUsed, dashMemTotal, dashMemPercent,
+            dashDiskFree, dashDiskTotal, dashDiskPercent,
+            dashNetDown, dashNetUp, dashUptime, copyVersions,
             taskTime, taskMinute,
             fmtTime,
         };

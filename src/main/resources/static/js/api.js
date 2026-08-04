@@ -45,6 +45,9 @@ const API = (() => {
 
         // 系统
         systemInfo: () => request('GET', '/system/info'),
+        dashboard: () => request('GET', '/system/dashboard'),
+        networkInfo: () => request('GET', '/system/network'),
+        networkConfig: () => request('GET', '/system/network-config'),
         pauseScheduler: () => request('POST', '/system/scheduler/pause'),
         resumeScheduler: () => request('POST', '/system/scheduler/resume'),
         checkPath: (path) => request('POST', '/system/check-path', {path}),

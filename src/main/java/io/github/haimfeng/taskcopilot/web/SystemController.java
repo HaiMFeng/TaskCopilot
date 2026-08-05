@@ -580,8 +580,14 @@ public class SystemController {
         taskLogRepository.deleteAll();
         taskRepository.deleteAll();
         scheduleRepository.deleteAll();
-        appConfigRepository.findById("displayName").ifPresent(appConfigRepository::delete);
-        cachedDisplayName = null;                      // 重置用户名缓存
+        appConfigRepository.deleteAll();               // 清空所有配置（含 displayName）
+        // 重新预置默认用户名，与服务器启动时 @PostConstruct initDefaultConfig 行为保持一致
+        if (!appConfigRepository.existsById("displayName")) {
+            appConfigRepository.save(new AppConfig("displayName",
+                    env.getProperty("taskcopilot.display-name", "USER")));
+        }
+        cachedDisplayName = null;                      // 清空缓存，使下一行从 DB 重新读取默认值
+        cachedDisplayName = getDisplayName();          // 同步缓存，避免首次修改 500
         taskScheduler.resumeAll();                     // 重新加载（此时无任务，自动调度为空）
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("ok", true);

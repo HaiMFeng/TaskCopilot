@@ -1499,7 +1499,6 @@ body {
 [v-cloak] { display: none !important; }
 
 /* 动态字段辅助文案 */
-.field-help { font-size: 12px; color: var(--text-dim); margin-top: 4px; line-height: 1.4; }
 .req-star { color: var(--danger); }
 
 /* 应用路径：输入框 + 校验按钮 */

@@ -5,7 +5,7 @@ const {createApp, ref, reactive, computed, onMounted, onBeforeUnmount, nextTick}
 const {ElMessage, ElMessageBox} = ElementPlus;
 
 // 前端 JS 版本号（修改后请同步递增，便于辨识加载版本）
-const APP_JS_VERSION = '20260805.18';
+const APP_JS_VERSION = '20260805.19';
 
 /** 任务顶级字段（不放进 config，提交时提升到 payload 顶层） */
 const TOP_LEVEL_FIELDS = new Set(['command', 'workingDir', 'timeoutSeconds']);
@@ -345,7 +345,6 @@ const ConfigFields = {
                     </div>
                 </el-dialog>
 
-                <div v-if="f.help" class="field-help">{{ f.help }}</div>
             </el-form-item>
 
             <!-- schema 无时间字段的任务类型：滑块作为属性块末尾 -->
@@ -1130,7 +1129,7 @@ createApp({
         const DRAG_THRESHOLD = 8;    // 超过该位移（px）判定为拖拽而非点击
 
         function onPointerDown(e, idx) {
-            if (!canDrag(idx)) return;
+            // 始终记录起点：不可拖拽的项也需支持轻点打开详情
             pointerStart = { x: e.clientX, y: e.clientY, idx };
             pointerDragging = false;
         }
@@ -1151,7 +1150,8 @@ createApp({
                 const dx = e.clientX - pointerStart.x;
                 const dy = e.clientY - pointerStart.y;
                 if (Math.hypot(dx, dy) < DRAG_THRESHOLD) return;
-                // 超过阈值 → 进入拖拽模式
+                // 超过阈值：仅当该项可拖拽时进入拖拽模式，否则视为滚动/轻点
+                if (!canDrag(pointerStart.idx)) return;
                 pointerDragging = true;
                 dragIndex.value = pointerStart.idx;
                 try { e.target.setPointerCapture(e.pointerId); } catch (_) {}
@@ -1161,10 +1161,10 @@ createApp({
         }
         function onPointerUp(e, idx) {
             if (!pointerStart) return;
-            if (pointerDragging) {
+            if (pointerDragging && canDrag(pointerStart.idx)) {
                 onDragEnd();
             } else {
-                // 未达阈值，视为轻点 → 选中详情
+                // 未达阈值（或不可拖拽项）→ 视为轻点，打开详情
                 const t = tasks.value[pointerStart.idx];
                 if (t) selectTaskMobile(t.id);
             }

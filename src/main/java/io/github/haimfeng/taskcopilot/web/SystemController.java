@@ -51,7 +51,7 @@ public class SystemController {
     private final org.springframework.core.env.Environment env;
 
     // 后端（服务器）版本号：与前端 HTML/JS 版本号保持同一格式（日期.序号），在此硬编码。
-    private static final String SERVER_VERSION = "20260805.18";
+    private static final String SERVER_VERSION = "20260805.19";
 
     // 网络速率缓存
     private static volatile long cachedNetRx = 0;
@@ -516,9 +516,7 @@ public class SystemController {
     public Map<String, String> updateDisplayName(@org.springframework.web.bind.annotation.RequestBody Map<String, String> body) {
         String name = body.getOrDefault("name", "").trim();
         if (name.isEmpty()) name = "USER";
-        AppConfig cfg = appConfigRepository.findById("displayName").orElse(new AppConfig("displayName", name));
-        cfg.setValue(name);
-        appConfigRepository.save(cfg);
+        appConfigRepository.upsert("displayName", name);
         cachedDisplayName = name;
         return Map.of("name", name);
     }

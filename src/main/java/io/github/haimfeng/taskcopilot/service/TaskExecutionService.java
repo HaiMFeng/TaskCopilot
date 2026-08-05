@@ -28,6 +28,8 @@ public class TaskExecutionService {
 
     public static final String TRIGGER_SCHEDULED = "SCHEDULED";
     public static final String TRIGGER_MANUAL = "MANUAL";
+    /** 服务器启动后由 StartupTaskRunner 顺序触发 */
+    public static final String TRIGGER_STARTUP = "STARTUP";
 
     private final CommandExecutor commandExecutor;
     private final TaskLogRepository taskLogRepository;

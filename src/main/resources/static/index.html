@@ -114,20 +114,24 @@
                             </button>
                         </div>
                         <ul class="task-list">
-                            <li v-for="(t, idx) in tasks"
-                                :key="t.id"
-                                class="task-item"
-                                :class="{ selected: t.id === selectedTaskId }"
-                                @click="selectTaskMobile(t.id)">
-                                <span class="task-status" :class="statusClass(t)"></span>
-                                <span class="task-name">{{ t.name }}</span>
-                                <span class="task-time">{{ taskTime(t) }}</span>
-                                <span class="task-type-badge">{{ t.typeName }}</span>
-                                <span class="task-toggle" @click.stop>
-                                    <el-switch :model-value="t.enabled" size="small"
-                                               @update:model-value="val => toggleTask(t, val)"/>
-                                </span>
-                            </li>
+                            <template v-for="(t, idx) in tasks" :key="t.id">
+                                <!-- 启动任务与定时任务之间的分组分隔线 -->
+                                <li v-if="showGroupDivider(idx)" class="task-group-divider" aria-hidden="true">
+                                    <span>定时运行</span>
+                                </li>
+                                <li class="task-item"
+                                    :class="{ selected: t.id === selectedTaskId, startup: isStartupTask(t) }"
+                                    @click="selectTaskMobile(t.id)">
+                                    <span class="task-status" :class="statusClass(t)"></span>
+                                    <span class="task-name">{{ t.name }}</span>
+                                    <span class="task-time" :class="{ startup: isStartupTask(t) }">{{ taskTime(t) }}</span>
+                                    <span class="task-type-badge">{{ t.typeName }}</span>
+                                    <span class="task-toggle" @click.stop>
+                                        <el-switch :model-value="t.enabled" size="small"
+                                                   @update:model-value="val => toggleTask(t, val)"/>
+                                    </span>
+                                </li>
+                            </template>
                         </ul>
                         <div v-if="tasks.length === 0" class="empty-hint">该日程表下暂无任务</div>
                     </aside>
@@ -158,7 +162,9 @@
                                         <el-option v-for="tt in taskTypes" :key="tt.typeCode" :label="tt.typeDisplayName" :value="tt.typeCode"/>
                                     </el-select>
                                 </el-form-item>
-                                <config-fields :schema="detailSchema" :model="form.config" :verified-map="appFileVerified" @update="onDetailFieldUpdate"></config-fields>
+                                <config-fields :schema="detailSchema" :model="form.config" :verified-map="appFileVerified" @update="onDetailFieldUpdate"
+                                              :trigger-mode="form.triggerMode" :trigger-mode-options="triggerModeOptions"
+                                              id-prefix="detail" @update-trigger-mode="onTriggerModeChange"></config-fields>
                                 <el-form-item label="备注(Hint)">
                                     <el-input v-model="form.remark" type="textarea" :rows="2" maxlength="255" show-word-limit placeholder="可选，记录任务用途或注意事项"/>
                                 </el-form-item>
@@ -191,29 +197,33 @@
                         <span class="section-title">{{ currentScheduleName }}</span>
                         <button class="btn-primary" :disabled="!currentScheduleId" @click="openCreateTask">＋ 新建任务</button>
                     </div>
-                    <p class="pane-hint">列表按执行时间自动排序，同一时间的任务可拖拽调整顺序。</p>
+                    <p class="pane-hint">启动运行任务置顶并按顺序执行，可拖拽调整；定时任务按执行时间排序，同一时间内可拖拽。</p>
 
                     <ul class="task-list">
-                        <li v-for="(t, idx) in tasks"
-                            :key="t.id"
-                            class="task-item"
-                            :class="{ selected: t.id === selectedTaskId, dragging: dragIndex === idx }"
-                            :draggable="canDrag(idx)"
-                            @click="selectTask(t.id)"
-                            @dragstart="onDragStart(idx)"
-                            @dragover.prevent="onDragOver(idx)"
-                            @dragend="onDragEnd">
-                            <span class="drag-handle" :class="{ disabled: !canDrag(idx) }">⋮⋮</span>
-                            <span class="task-status" :class="statusClass(t)"></span>
-                            <span class="task-name">{{ t.name }}</span>
-                            <span class="task-time">{{ taskTime(t) }}</span>
-                            <span class="task-type-badge">{{ t.typeName }}</span>
-                            <span class="task-toggle" @click.stop>
-                                <el-switch :model-value="t.enabled"
-                                           size="small"
-                                           @update:model-value="val => toggleTask(t, val)"/>
-                            </span>
-                        </li>
+                        <template v-for="(t, idx) in tasks" :key="t.id">
+                            <!-- 启动任务与定时任务之间的分组分隔线 -->
+                            <li v-if="showGroupDivider(idx)" class="task-group-divider" aria-hidden="true">
+                                <span>定时运行</span>
+                            </li>
+                            <li class="task-item"
+                                :class="{ selected: t.id === selectedTaskId, dragging: dragIndex === idx, startup: isStartupTask(t) }"
+                                :draggable="canDrag(idx)"
+                                @click="selectTask(t.id)"
+                                @dragstart="onDragStart(idx)"
+                                @dragover.prevent="onDragOver(idx)"
+                                @dragend="onDragEnd">
+                                <span class="drag-handle" :class="{ disabled: !canDrag(idx) }">⋮⋮</span>
+                                <span class="task-status" :class="statusClass(t)"></span>
+                                <span class="task-name">{{ t.name }}</span>
+                                <span class="task-time" :class="{ startup: isStartupTask(t) }">{{ taskTime(t) }}</span>
+                                <span class="task-type-badge">{{ t.typeName }}</span>
+                                <span class="task-toggle" @click.stop>
+                                    <el-switch :model-value="t.enabled"
+                                               size="small"
+                                               @update:model-value="val => toggleTask(t, val)"/>
+                                </span>
+                            </li>
+                        </template>
                     </ul>
                     <div v-if="tasks.length === 0" class="empty-hint">该日程表下暂无任务</div>
                 </aside>
@@ -250,7 +260,9 @@
                             </el-select>
                         </el-form-item>
 
-                        <config-fields :schema="detailSchema" :model="form.config" :verified-map="appFileVerified" @update="onDetailFieldUpdate"></config-fields>
+                        <config-fields :schema="detailSchema" :model="form.config" :verified-map="appFileVerified" @update="onDetailFieldUpdate"
+                                      :trigger-mode="form.triggerMode" :trigger-mode-options="triggerModeOptions"
+                                      id-prefix="detail" @update-trigger-mode="onTriggerModeChange"></config-fields>
 
                         <el-form-item label="备注(Hint)">
                             <el-input v-model="form.remark" type="textarea" :rows="2" maxlength="255" show-word-limit placeholder="可选，记录任务用途或注意事项"/>
@@ -531,7 +543,9 @@
                     <span class="about-value about-version">
                         <span class="ver-chip">HTML <b>{{ htmlVer }}</b></span>
                         <span class="ver-sep">/</span>
-                        <span class="ver-chip">JS <b>{{ jsVer }}</b> <i class="fa-solid fa-copy about-copy"></i></span>
+                        <span class="ver-chip">JS <b>{{ jsVer }}</b></span>
+                        <span class="ver-sep">/</span>
+                        <span class="ver-chip">SERVER <b>{{ serverVer }}</b> <i class="fa-solid fa-copy about-copy"></i></span>
                     </span>
                 </div>
 
@@ -581,7 +595,9 @@
                 </el-select>
             </el-form-item>
 
-            <config-fields :schema="createSchema" :model="createForm.config" :verified-map="createFileVerified" @update="onCreateFieldUpdate"></config-fields>
+            <config-fields :schema="createSchema" :model="createForm.config" :verified-map="createFileVerified" @update="onCreateFieldUpdate"
+                          :trigger-mode="createForm.triggerMode" :trigger-mode-options="triggerModeOptions"
+                          id-prefix="create" @update-trigger-mode="onCreateTriggerModeChange"></config-fields>
 
             <el-form-item label="备注(Hint)">
                 <el-input v-model="createForm.remark" type="textarea" :rows="2" maxlength="255" show-word-limit/>
@@ -636,6 +652,7 @@
     <div class="version-badge" v-show="false" @click="copyVersions" title="点击复制版本号">
         <span>HTML <b id="htmlVer">--</b></span>
         <span>JS <b id="jsVer">--</b></span>
+        <span>SERVER <b id="serverVer">--</b></span>
     </div>
 </div>
 
@@ -643,7 +660,7 @@
 <script src="/vendor/index.full.min.js"></script>
 <script src="/vendor/dayjs.min.js"></script>
 <script src="/js/api.js"></script>
-<script>window.__APP_HTML_VERSION__ = '20260805.14';</script>
-<script src="/js/app.js?v=20260805.14"></script>
+<script>window.__APP_HTML_VERSION__ = '20260805.15';</script>
+<script src="/js/app.js?v=20260805.15"></script>
 </body>
 </html>

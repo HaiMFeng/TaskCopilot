@@ -1,6 +1,7 @@
 package io.github.haimfeng.taskcopilot.service;
 
 import io.github.haimfeng.taskcopilot.domain.Task;
+import io.github.haimfeng.taskcopilot.domain.TriggerMode;
 import io.github.haimfeng.taskcopilot.repository.TaskRepository;
 import io.github.haimfeng.taskcopilot.tasktype.TaskTypeRegistry;
 
@@ -51,7 +52,21 @@ public class BootstrapMigration implements CommandLineRunner {
         if (migrated > 0) {
             log.info("共迁移 {} 个任务至 RUN_COMMAND", migrated);
         }
+        migrateTriggerMode();
         // 迁移后重新装载调度，使新类型生效
         taskScheduler.reloadAll();
+    }
+
+    /**
+     * 向上兼容：旧版本的任务表没有 trigger_mode 列，升级后该列为 null。
+     * 首次运行新版本时统一回填为 SCHEDULED（定时运行），使旧任务行为完全不变。
+     */
+    private void migrateTriggerMode() {
+        long pending = taskRepository.countByTriggerModeIsNull();
+        if (pending == 0) {
+            return;
+        }
+        int updated = taskRepository.backfillTriggerMode(TriggerMode.SCHEDULED);
+        log.info("共有 {} 个旧任务缺少运行方式，已回填为定时运行（实际更新 {} 条）", pending, updated);
     }
 }

@@ -5,7 +5,7 @@ const {createApp, ref, reactive, computed, onMounted, onBeforeUnmount, nextTick}
 const {ElMessage, ElMessageBox} = ElementPlus;
 
 // 前端 JS 版本号（修改后请同步递增，便于辨识加载版本）
-const APP_JS_VERSION = '20260805.14';
+const APP_JS_VERSION = '20260805.15';
 
 /** 任务顶级字段（不放进 config，提交时提升到 payload 顶层） */
 const TOP_LEVEL_FIELDS = new Set(['command', 'workingDir', 'timeoutSeconds']);
@@ -44,8 +44,11 @@ const ConfigFields = {
         model: {type: Object, default: () => ({})},
         value: {type: Object, default: () => ({})},  // 兼容别名
         verifiedMap: {type: Object, default: () => ({})}, // 校验通过状态（与父级共享）
+        triggerMode: {type: String, default: 'SCHEDULED'}, // 运行方式（SCHEDULED/STARTUP）
+        triggerModeOptions: {type: Array, default: () => []}, // 运行方式可选项
+        idPrefix: {type: String, default: 'detail'}, // 用于区分多实例下控件名
     },
-    emits: ['update'],
+    emits: ['update', 'updateTriggerMode'],
     setup(props, {emit}) {
         // 统一读取：永远返回可安全绑定的值
         const val = (field) => {
@@ -189,16 +192,70 @@ const ConfigFields = {
             nextTick(() => autoVerifyAll());
         });
 
+        // ----- 运行方式滑块（与顶端页面切换滑块同款 segmented 风格）-----
+        const triggerModeRefs = {};
+        const triggerThumbStyle = reactive({width: '0px', transform: 'translateX(0px)'});
+        function setTriggerModeRef(val, el) { if (el) triggerModeRefs[val] = el; }
+        function moveTriggerThumb() {
+            const el = triggerModeRefs[props.triggerMode];
+            if (!el) return;
+            triggerThumbStyle.width = el.offsetWidth + 'px';
+            triggerThumbStyle.transform = 'translateX(' + el.offsetLeft + 'px)';
+        }
+        // 初始挂载、运行方式变化、schema 变化时重新定位滑块高亮
+        watch(() => props.triggerMode, () => nextTick(moveTriggerThumb));
+        watch(() => props.schema, () => nextTick(moveTriggerThumb), {deep: false});
+        onMounted(() => nextTick(moveTriggerThumb));
+        if (typeof window !== 'undefined') window.addEventListener('resize', moveTriggerThumb);
+
+        // 当前 schema 是否包含时间选择器字段（用于决定滑块是否额外补到末尾）
+        const hasTimeField = computed(() => (props.schema || []).some((f) => f.type === 'time'));
+
         return {val, set, checking, checkResult, verified,
                 verifyField, onPathInput, cleanPath, fileBaseName, autoVerifyAll,
                 processPickerVisible, processFilter, filteredProcesses, wildcardTip,
-                openProcessPicker, pickProcess};
+                openProcessPicker, pickProcess, emit, hasTimeField,
+                triggerModeRefs, triggerThumbStyle, setTriggerModeRef, moveTriggerThumb};
     },
     template: `
         <div class="config-fields">
-            <el-form-item v-for="f in schema" :key="f.name" :required="f.required">
+            <el-form-item v-for="f in schema" :key="f.name" :required="f.type !== 'time' && f.required">
                 <template #label>
-                    <span>{{ f.label }}<span v-if="f.required" class="req-star"> *</span></span>
+                    <span v-if="f.type !== 'time'">{{ f.label }}<span v-if="f.required" class="req-star"> *</span></span>
+                </template>
+
+                <!-- 运行方式滑块 + 执行时间：位于类型切换下方，二者联动选择/隐藏 -->
+                <template v-if="f.type === 'time'">
+                    <!-- 运行方式为必选项，使用与必填项一致的样式（不加 prop，避免触发表单校验） -->
+                    <el-form-item class="inline-trigger-mode" label="运行方式" required>
+                        <div class="trigger-mode-row">
+                            <div class="mode-switch trigger-mode-switch" role="tablist" aria-label="运行方式">
+                                <div class="mode-thumb" :style="triggerThumbStyle"></div>
+                    <button type="button" v-for="o in triggerModeOptions" :key="o.value"
+                            :ref="el => setTriggerModeRef(o.value, el)"
+                            class="mode-option"
+                            :class="{active: triggerMode === o.value}"
+                            role="tab"
+                            @click="emit('updateTriggerMode', o.value)">
+                                    <span class="mode-label-full">{{ o.label }}</span>
+                                </button>
+                            </div>
+                            <div class="field-hint">
+                                {{ triggerMode === 'STARTUP' ? '服务器启动后，按列表顺序依次运行一次' : '每天在指定时间自动运行' }}
+                            </div>
+                        </div>
+                    </el-form-item>
+                    <!-- 执行时间：仅定时运行显示，与运行方式一同选择/隐藏 -->
+                    <transition name="time-field">
+                        <el-form-item v-if="triggerMode !== 'STARTUP'" label="执行时间" :required="f.required">
+                            <el-time-picker :model-value="val(f)"
+                                            format="HH:mm"
+                                            value-format="HH:mm"
+                                            placeholder="选择时间"
+                                            style="width:100%"
+                                            @update:model-value="v => set(f, v || '')"/>
+                        </el-form-item>
+                    </transition>
                 </template>
 
                 <el-select v-if="f.type === 'select'"
@@ -226,19 +283,11 @@ const ConfigFields = {
                                  style="width:100%"
                                  @update:model-value="v => set(f, v)"/>
 
-                <el-time-picker v-else-if="f.type === 'time'"
-                                :model-value="val(f)"
-                                format="HH:mm"
-                                value-format="HH:mm"
-                                placeholder="选择时间"
-                                style="width:100%"
-                                @update:model-value="v => set(f, v || '')"/>
-
                 <el-switch v-else-if="f.type === 'boolean'"
                            :model-value="!!val(f)"
                            @update:model-value="v => set(f, v)"/>
 
-                <el-input v-else-if="f.type !== 'appFile' && f.type !== 'process'"
+                <el-input v-else-if="f.type !== 'time' && f.type !== 'appFile' && f.type !== 'process'"
                           :model-value="val(f)"
                           :placeholder="f.help || ''"
                           @update:model-value="v => set(f, v)"/>
@@ -297,6 +346,26 @@ const ConfigFields = {
                 </el-dialog>
 
                 <div v-if="f.help && f.type !== 'text' && f.type !== 'textarea' && f.type !== 'appFile' && f.type !== 'process'" class="field-help">{{ f.help }}</div>
+            </el-form-item>
+
+            <!-- schema 无时间字段的任务类型：滑块作为属性块末尾 -->
+            <el-form-item v-if="!hasTimeField" class="inline-trigger-mode" label="运行方式" required>
+                <div class="trigger-mode-row">
+                    <div class="mode-switch trigger-mode-switch" role="tablist" aria-label="运行方式">
+                        <div class="mode-thumb" :style="triggerThumbStyle"></div>
+                        <button v-for="o in triggerModeOptions" :key="o.value"
+                                :ref="el => setTriggerModeRef(o.value, el)"
+                                class="mode-option"
+                                :class="{active: triggerMode === o.value}"
+                                role="tab"
+                                @click="emit('updateTriggerMode', o.value)">
+                            <span class="mode-label-full">{{ o.label }}</span>
+                        </button>
+                    </div>
+                    <div class="field-hint">
+                        {{ triggerMode === 'STARTUP' ? '服务器启动后，按列表顺序依次运行一次' : '每天在指定时间自动运行' }}
+                    </div>
+                </div>
             </el-form-item>
         </div>
     `,
@@ -506,8 +575,9 @@ createApp({
         }
 
         /* ---------------- 表单模型 ---------------- */
-        const form = reactive({id: null, name: '', typeCode: '', remark: '', config: {}});
-        const createForm = reactive({name: '', typeCode: '', remark: '', config: {}});
+        // triggerMode: 'SCHEDULED' 定时运行 / 'STARTUP' 启动运行；旧数据缺省按定时运行处理
+        const form = reactive({id: null, name: '', typeCode: '', remark: '', config: {}, triggerMode: 'SCHEDULED'});
+        const createForm = reactive({name: '', typeCode: '', remark: '', config: {}, triggerMode: 'SCHEDULED'});
 
         // appFile 字段的校验通过状态（与 ConfigFields 子组件共享）
         const appFileVerified = reactive({});       // 详情表单
@@ -517,20 +587,39 @@ createApp({
             const t = taskTypes.value.find((x) => x.typeCode === typeCode);
             return (t && t.configSchema) ? t.configSchema : [];
         };
-        const detailSchema = computed(() => schemaOf(form.typeCode));
-        const createSchema = computed(() => schemaOf(createForm.typeCode));
+        /**
+         * 「启动运行」的任务不按时间触发，时间选择器在 ConfigFields 组件内通过
+         * v-if="triggerMode !== 'STARTUP'" 隐藏，但 time 字段仍保留在 schema 中
+         * （滑块需渲染在 time 字段前），config.time 的值也会保留，切回定时运行时无需重填。
+         */
+        const visibleSchema = (typeCode) => schemaOf(typeCode);
+        const detailSchema = computed(() => visibleSchema(form.typeCode, form.triggerMode));
+        const createSchema = computed(() => visibleSchema(createForm.typeCode, createForm.triggerMode));
+        // 提交时需要用完整 schema，避免被隐藏的 time 字段在保存后丢失
+        const detailFullSchema = computed(() => schemaOf(form.typeCode));
+        const createFullSchema = computed(() => schemaOf(createForm.typeCode));
+
+        /** 运行方式滑块的可选项 */
+        const triggerModeOptions = [
+            {label: '定时运行', value: 'SCHEDULED'},
+            {label: '启动运行', value: 'STARTUP'}
+        ];
 
         const onDetailFieldUpdate = (name, v) => { form.config[name] = v; };
         const onCreateFieldUpdate = (name, v) => { createForm.config[name] = v; };
 
-        // 切换类型时保留同名字段已填值
+        // 切换类型时保留同名字段已填值（用完整 schema，避免隐藏的 time 字段被丢弃）
         function onTypeChange() {
-            form.config = buildModel(detailSchema.value, form.config);
+            form.config = buildModel(detailFullSchema.value, form.config);
         }
         function onCreateTypeChange() {
-            createForm.config = buildModel(createSchema.value, createForm.config);
+            createForm.config = buildModel(createFullSchema.value, createForm.config);
             Object.keys(createFileVerified).forEach((k) => { delete createFileVerified[k]; });
         }
+
+        // 切换运行方式（定时运行 / 启动运行），触发 schema 重新计算以显示/隐藏时间选择器
+        function onTriggerModeChange(v) { form.triggerMode = v; }
+        function onCreateTriggerModeChange(v) { createForm.triggerMode = v; }
 
         /* ---------------- 派生显示 ---------------- */
         const selectedTask = ref(null);
@@ -700,6 +789,8 @@ createApp({
             form.name = task.name;
             form.typeCode = task.typeCode;
             form.remark = task.remark || '';
+            // 旧版本任务无 triggerMode 字段，按定时运行处理
+            form.triggerMode = task.triggerMode === 'STARTUP' ? 'STARTUP' : 'SCHEDULED';
             // command/workingDir/timeoutSeconds 是顶层字段，但由 schema 渲染，需要合并回填
             const merged = Object.assign({}, task.config || {}, {
                 command: task.command,
@@ -762,6 +853,7 @@ createApp({
                 timeoutSeconds: (top.timeoutSeconds != null && top.timeoutSeconds !== '')
                     ? Number(top.timeoutSeconds) : null,
                 remark: (src.remark || '').trim() || null,
+                triggerMode: src.triggerMode === 'STARTUP' ? 'STARTUP' : 'SCHEDULED',
                 scheduleId: currentScheduleId.value,
             };
         }
@@ -784,7 +876,7 @@ createApp({
             }
             saving.value = true;
             try {
-                const updated = await API.updateTask(form.id, buildPayload(form, detailSchema.value));
+                const updated = await API.updateTask(form.id, buildPayload(form, detailFullSchema.value));
                 await loadTasks();
                 selectTask(updated.id);
                 return true;
@@ -893,6 +985,7 @@ createApp({
             }
             createForm.name = '';
             createForm.remark = '';
+            createForm.triggerMode = 'SCHEDULED';
             createForm.typeCode = taskTypes.value.length ? taskTypes.value[0].typeCode : '';
             createForm.config = buildModel(schemaOf(createForm.typeCode), {});
             Object.keys(createFileVerified).forEach((k) => { delete createFileVerified[k]; });
@@ -910,7 +1003,7 @@ createApp({
             }
             creating.value = true;
             try {
-                const payload = buildPayload(createForm, createSchema.value);
+                const payload = buildPayload(createForm, createFullSchema.value);
                 payload.enabled = true;
                 await API.createTask(payload);
                 createVisible.value = false;
@@ -923,9 +1016,32 @@ createApp({
             }
         }
 
+        /* ---------------- 运行方式 ---------------- */
+        /** 是否为「启动运行」任务；旧数据无该字段，按定时运行处理 */
+        function isStartupTask(t) {
+            return !!t && t.triggerMode === 'STARTUP';
+        }
+        /** 分组序号：启动任务 0（置顶），定时任务 1 */
+        function taskGroup(t) {
+            return isStartupTask(t) ? 0 : 1;
+        }
+        /**
+         * 是否需要在该项之前渲染分组分隔线：
+         * 即它是第一个定时任务，且其上方存在启动任务。
+         */
+        function showGroupDivider(idx) {
+            const list = tasks.value;
+            if (!list || idx <= 0) return false;
+            return taskGroup(list[idx]) !== taskGroup(list[idx - 1]);
+        }
+        /** 列表中是否同时存在两类任务（用于决定是否展示分隔线区域） */
+        const hasStartupTasks = computed(() => tasks.value.some(isStartupTask));
+
         /* ---------------- 触发时间 ---------------- */
         /** 取任务的触发时间文本（HH:mm），配置缺失时回退到默认 08:30 */
         function taskTime(t) {
+            // 启动任务不按时间触发，列表中用固定标识替代时间
+            if (isStartupTask(t)) return '启动时';
             const raw = t && t.config ? t.config.time : null;
             if (typeof raw === 'string' && raw.trim()) {
                 const parts = raw.trim().split(':');
@@ -937,28 +1053,42 @@ createApp({
             }
             return '08:30';
         }
-        /** 触发时间对应的当日分钟数，用于比较与排序 */
+        /** 触发时间对应的当日分钟数，用于比较与排序；启动任务不参与时间比较，统一为 0 */
         function taskMinute(t) {
+            if (isStartupTask(t)) return 0;
             const parts = taskTime(t).split(':');
             return parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10);
         }
 
         /* ---------------- 拖拽排序 ---------------- */
-        // 列表以触发时间为主序，拖拽仅用于调整「同一时间」任务的先后
+        // 列表分为「启动运行」「定时运行」两段：
+        //  - 启动任务组内可任意排序（顺序即启动时的执行次序）；
+        //  - 定时任务以触发时间为主序，仅能调整同一时间内的先后；
+        //  - 两段之间不允许互相拖拽。
         const dragIndex = ref(-1);
-        /** 仅当存在同一执行时间的其它任务时，该项才可拖拽 */
+
+        /** 两个任务是否处于同一可交换区间 */
+        function sameDragZone(a, b) {
+            if (taskGroup(a) !== taskGroup(b)) return false;
+            // 启动任务不受时间约束，同组即可互换
+            if (isStartupTask(a)) return true;
+            return taskMinute(a) === taskMinute(b);
+        }
+
+        /** 该项存在可交换的相邻任务时才允许拖拽 */
         function canDrag(idx) {
             const list = tasks.value;
             if (!list || list.length < 2) return false;
-            const m = taskMinute(list[idx]);
-            return (idx > 0 && taskMinute(list[idx - 1]) === m)
-                || (idx < list.length - 1 && taskMinute(list[idx + 1]) === m);
+            const cur = list[idx];
+            return (idx > 0 && sameDragZone(list[idx - 1], cur))
+                || (idx < list.length - 1 && sameDragZone(list[idx + 1], cur));
         }
+
         function onDragStart(idx) { dragIndex.value = idx; }
         function onDragOver(idx) {
             if (dragIndex.value === -1 || dragIndex.value === idx) return;
-            // 跨执行时间不允许调整顺序，直接忽略此次移动
-            if (taskMinute(tasks.value[dragIndex.value]) !== taskMinute(tasks.value[idx])) return;
+            // 跨分组或跨执行时间不允许调整顺序，直接忽略此次移动
+            if (!sameDragZone(tasks.value[dragIndex.value], tasks.value[idx])) return;
             const arr = tasks.value.slice();
             const [moved] = arr.splice(dragIndex.value, 1);
             arr.splice(idx, 0, moved);
@@ -1073,8 +1203,18 @@ createApp({
             // 填充右下角版本标识
             const htmlVer = document.getElementById('htmlVer');
             const jsVer = document.getElementById('jsVer');
+            const serverVerEl = document.getElementById('serverVer');
             if (htmlVer) htmlVer.textContent = window.__APP_HTML_VERSION__ || '?';
             if (jsVer) jsVer.textContent = APP_JS_VERSION;
+
+            // 获取后端（服务器）版本号
+            try {
+                const sysInfo = await API.systemInfo();
+                if (sysInfo && sysInfo.version) {
+                    serverVer.value = sysInfo.version;
+                    if (serverVerEl) serverVerEl.textContent = sysInfo.version;
+                }
+            } catch (e) { /* 版本号获取失败不阻塞主流程 */ }
 
             // 等待仪表盘首次数据就绪后再关闭遮罩
             try { await dashReady; } catch (e) { /* 即使失败也继续 */ }
@@ -1263,7 +1403,7 @@ createApp({
 
         function copyVersions() {
             const htmlV = window.__APP_HTML_VERSION__ || '?';
-            const text = 'HTML ' + htmlV + '  JS ' + APP_JS_VERSION;
+            const text = 'HTML ' + htmlV + '  JS ' + APP_JS_VERSION + '  SERVER ' + serverVer.value;
             if (navigator.clipboard && navigator.clipboard.writeText) {
                 navigator.clipboard.writeText(text).then(() => {
                     ElMessage.success('已复制：' + text);
@@ -1277,9 +1417,9 @@ createApp({
         // 关于页版本号（无论是否开发模式始终可用，点击复制）
         const htmlVer = ref(window.__APP_HTML_VERSION__ || '?');
         const jsVer = ref(APP_JS_VERSION);
-        const aboutVersion = ref('HTML ' + htmlVer.value + '  JS ' + jsVer.value);
+        const serverVer = ref('?');
         function copyVersion() {
-            const text = aboutVersion.value;
+            const text = 'HTML ' + htmlVer.value + '  JS ' + jsVer.value + '  SERVER ' + serverVer.value;
             if (navigator.clipboard && navigator.clipboard.writeText) {
                 navigator.clipboard.writeText(text).then(() => {
                     ElMessage.success('已复制版本号：' + text);
@@ -1357,6 +1497,7 @@ createApp({
             form, createForm, detailSchema, createSchema,
             appFileVerified, createFileVerified,
             onDetailFieldUpdate, onCreateFieldUpdate, onTypeChange, onCreateTypeChange,
+            onTriggerModeChange, onCreateTriggerModeChange,
             saving, running, creating,
             createVisible, historyVisible, historyText, resultOutput,
             errorDialogVisible, errorDetail, errTaskName, openStateDialog, clearSchedulerError,
@@ -1368,6 +1509,8 @@ createApp({
             selectTask, toggleTask, saveDetail, runTask, viewHistory, deleteTask,
             openCreateTask, submitCreate,
             dragIndex, onDragStart, onDragOver, onDragEnd, canDrag,
+            // 运行方式（定时运行 / 启动运行）
+            triggerModeOptions, isStartupTask, showGroupDivider, hasStartupTasks,
             // 仪表盘
             dashInfo, dashDashboard, dashNetworks, dashNetConfig, dashTime, dashDate,
             dashHostName, editingHost, hostInput, startEditHost, finishEditHost,
@@ -1375,7 +1518,7 @@ createApp({
             dashDiskFree, dashDiskTotal, dashDiskPercent,
             dashNetDown, dashNetUp, dashUptime, copyVersions,
             // 关于
-            htmlVer, jsVer, aboutVersion, copyVersion, clearAllData,
+            htmlVer, jsVer, serverVer, copyVersion, clearAllData,
             termRunning, termShell, termInput, termOutputRef,
             startTerminal, stopTerminal, sendTerminalCommand, sendTerminalInterrupt,
             taskTime, taskMinute,

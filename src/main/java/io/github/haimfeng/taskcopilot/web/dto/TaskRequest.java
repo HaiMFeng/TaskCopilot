@@ -27,6 +27,12 @@ public record TaskRequest(
         /** 触发配置，由任务类型解析 */
         Map<String, Object> config,
 
+        /**
+         * 运行方式：SCHEDULED（定时运行）/ STARTUP（启动运行）。
+         * 旧客户端不传该字段时按 SCHEDULED 处理，保持向上兼容。
+         */
+        String triggerMode,
+
         Boolean enabled,
 
         @Min(1) @Max(86400)

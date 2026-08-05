@@ -75,6 +75,7 @@ public class TaskScheduler {
         }
         taskRepository.findByEnabledTrueOrderBySortOrderAscIdAsc().stream()
                 .filter(this::belongsToActiveSchedule)
+                .filter(t -> !t.isStartupTask())
                 .forEach(this::schedule);
         schedulerError.set(false);
         log.info("已注册 {} 个定时任务", scheduled.size());
@@ -86,6 +87,10 @@ public class TaskScheduler {
     public synchronized void schedule(Task task) {
         unschedule(task.getId());
         if (!task.isEnabled() || globallyPaused.get() || !belongsToActiveSchedule(task)) {
+            return;
+        }
+        // 启动运行任务只在服务器启动后由 StartupTaskRunner 执行一次，不参与每日定时排期
+        if (task.isStartupTask()) {
             return;
         }
         TaskTypeHandler handler = taskTypeRegistry.find(task.getTypeCode()).orElse(null);
@@ -131,7 +136,8 @@ public class TaskScheduler {
         scheduled.remove(taskId);
         nextExecutions.remove(taskId);
         Task task = taskRepository.findById(taskId).orElse(null);
-        if (task == null || !task.isEnabled() || globallyPaused.get() || !belongsToActiveSchedule(task)) {
+        if (task == null || !task.isEnabled() || globallyPaused.get()
+                || !belongsToActiveSchedule(task) || task.isStartupTask()) {
             return;
         }
         executionService.executeAsync(task, TaskExecutionService.TRIGGER_SCHEDULED);

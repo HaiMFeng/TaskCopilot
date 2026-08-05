@@ -70,17 +70,38 @@ public class TaskService {
 
     /**
      * 查询指定日程表下的任务。
-     * 先按触发时间升序，时间相同的再按 sortOrder（用户手动拖拽的顺序）排列。
+     * <p>
+     * 排序规则：启动运行任务整体置顶（组内完全由用户拖拽的 sortOrder 决定），
+     * 定时运行任务在下（先按触发时间升序，时间相同的再按 sortOrder）。
      */
     @Transactional(readOnly = true)
     public List<TaskResponse> listBySchedule(Long scheduleId) {
         return taskRepository.findByScheduleIdOrderBySortOrderAscIdAsc(scheduleId).stream()
-                .sorted(java.util.Comparator
-                        .comparingInt((Task t) -> triggerMinuteOf(t))
-                        .thenComparingInt(Task::getSortOrder)
-                        .thenComparing(Task::getId))
+                .sorted(taskListComparator())
                 .map(this::toResponse)
                 .toList();
+    }
+
+    /**
+     * 任务列表统一排序器：启动任务在前且仅按手动顺序，定时任务在后且以触发时间为主序。
+     */
+    private java.util.Comparator<Task> taskListComparator() {
+        return java.util.Comparator
+                .comparingInt((Task t) -> t.isStartupTask() ? 0 : 1)
+                .thenComparingInt(this::groupMinuteOf)
+                .thenComparingInt(Task::getSortOrder)
+                .thenComparing(Task::getId);
+    }
+
+    /**
+     * 分组内的主排序键。
+     * <ul>
+     *     <li>启动任务不参与时间排序，统一返回 0，完全由 sortOrder 决定次序；</li>
+     *     <li>定时任务返回触发时间对应的当日分钟数。</li>
+     * </ul>
+     */
+    private int groupMinuteOf(Task task) {
+        return task.isStartupTask() ? 0 : triggerMinuteOf(task);
     }
 
     /**
@@ -158,8 +179,12 @@ public class TaskService {
     }
 
     /**
-     * 保存任务顺序。列表以触发时间为主序，因此这里只允许调整「同一触发时间」组内的相对顺序：
-     * 传入的顺序若改变了各时间组之间的先后，则视为非法请求。
+     * 保存任务顺序。列表分为「启动运行」「定时运行」两个区段，拖拽受以下约束：
+     * <ul>
+     *     <li>启动任务恒在定时任务之前，二者不能互换区段；</li>
+     *     <li>启动任务组内可任意排序；</li>
+     *     <li>定时任务以触发时间为主序，只能调整同一触发时间内的相对顺序。</li>
+     * </ul>
      */
     @Transactional
     public void reorder(List<Long> orderedIds) {
@@ -167,14 +192,24 @@ public class TaskService {
         Map<Long, Task> byId = new java.util.HashMap<>();
         tasks.forEach(t -> byId.put(t.getId(), t));
 
-        // 校验：按传入顺序取出触发时间，必须是非递减的，否则说明跨时间拖拽
+        // 校验：按传入顺序，分组序号与组内时间键都必须非递减，否则说明发生了跨区段/跨时间拖拽
+        int previousGroup = Integer.MIN_VALUE;
         int previousMinute = Integer.MIN_VALUE;
         for (Long id : orderedIds) {
             Task task = byId.get(id);
             if (task == null) {
                 continue;
             }
-            int minute = triggerMinuteOf(task);
+            int group = task.isStartupTask() ? 0 : 1;
+            if (group < previousGroup) {
+                throw new IllegalArgumentException("启动运行任务与定时运行任务之间不能调整顺序");
+            }
+            // 进入新分组时重置时间基准，避免用上一组的时间做比较
+            if (group > previousGroup) {
+                previousGroup = group;
+                previousMinute = Integer.MIN_VALUE;
+            }
+            int minute = groupMinuteOf(task);
             if (minute < previousMinute) {
                 throw new IllegalArgumentException("只能调整同一执行时间任务之间的顺序");
             }
@@ -255,6 +290,8 @@ public class TaskService {
         Object cfgWorkdir = config.get("workingDir");
         task.setWorkingDir(blankToNull(cfgWorkdir instanceof String s ? s : request.workingDir()));
         task.setTypeCode(request.typeCode());
+        // 运行方式：未传或非法值一律回退为定时运行，兼容旧客户端
+        task.setTriggerMode(io.github.haimfeng.taskcopilot.domain.TriggerMode.from(request.triggerMode()));
         task.setConfigJson(configCodec.write(config));
         Object cfgTimeout = config.get("timeoutSeconds");
         task.setTimeoutSeconds(cfgTimeout instanceof Number n ? n.intValue() : request.timeoutSeconds());
@@ -288,7 +325,9 @@ public class TaskService {
                 task.getTypeCode(),
                 handler.map(TaskTypeHandler::displayName).orElse(task.getTypeCode()),
                 config,
-                handler.map(h -> h.summary(config)).orElse("未知类型"),
+                triggerSummaryOf(task, handler, config),
+                task.resolveTriggerMode().name(),
+                task.resolveTriggerMode().displayName(),
                 task.isEnabled(),
                 task.getSortOrder(),
                 task.getTimeoutSeconds(),
@@ -302,6 +341,17 @@ public class TaskService {
                 task.getCreatedAt(),
                 task.getUpdatedAt()
         );
+    }
+
+    /**
+     * 触发方式摘要。启动任务不按时间触发，直接给出固定文案；
+     * 定时任务仍由任务类型 handler 生成（如 "每日 08:30"）。
+     */
+    private String triggerSummaryOf(Task task, Optional<TaskTypeHandler> handler, Map<String, Object> config) {
+        if (task.isStartupTask()) {
+            return "服务器启动后运行";
+        }
+        return handler.map(h -> h.summary(config)).orElse("未知类型");
     }
 
     private TaskLogResponse toLogResponse(TaskLog log) {

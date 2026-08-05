@@ -15,6 +15,10 @@ public record TaskResponse(
         String typeName,
         Map<String, Object> config,
         String triggerSummary,
+        /** 运行方式：SCHEDULED / STARTUP */
+        String triggerMode,
+        /** 运行方式的中文名，便于前端直接展示 */
+        String triggerModeName,
         boolean enabled,
         int sortOrder,
         Integer timeoutSeconds,

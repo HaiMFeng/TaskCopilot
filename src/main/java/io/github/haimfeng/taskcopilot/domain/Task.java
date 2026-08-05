@@ -2,6 +2,8 @@ package io.github.haimfeng.taskcopilot.domain;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -55,6 +57,24 @@ public class Task {
     @Lob
     @Column(name = "config_json")
     private String configJson;
+
+    /**
+     * 运行方式：{@link TriggerMode#SCHEDULED} 每日定时运行，{@link TriggerMode#STARTUP} 服务器启动后运行。
+     * 旧版本数据无此列，Hibernate 补列后为 null，由启动迁移统一回填为 SCHEDULED。
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "trigger_mode", length = 16)
+    private TriggerMode triggerMode = TriggerMode.SCHEDULED;
+
+    /** 读取运行方式，null（旧数据）一律视作定时运行，保证向上兼容 */
+    public TriggerMode resolveTriggerMode() {
+        return triggerMode == null ? TriggerMode.SCHEDULED : triggerMode;
+    }
+
+    /** 是否为启动运行任务 */
+    public boolean isStartupTask() {
+        return resolveTriggerMode() == TriggerMode.STARTUP;
+    }
 
     /** 是否启用 */
     @Column(nullable = false)

@@ -12,6 +12,7 @@ import io.github.haimfeng.taskcopilot.service.TaskScheduler;
 import io.github.haimfeng.taskcopilot.service.TaskService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import jakarta.annotation.PostConstruct;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -51,7 +52,7 @@ public class SystemController {
     private final org.springframework.core.env.Environment env;
 
     // 后端（服务器）版本号：与前端 HTML/JS 版本号保持同一格式（日期.序号），在此硬编码。
-    private static final String SERVER_VERSION = "20260805.19";
+    private static final String SERVER_VERSION = "20260805.20";
 
     // 网络速率缓存
     private static volatile long cachedNetRx = 0;
@@ -68,6 +69,20 @@ public class SystemController {
             return cachedDisplayName;
         }
         return env.getProperty("taskcopilot.display-name", "USER");
+    }
+
+    /**
+     * 应用启动时为新用户预置默认显示名（displayName=USER）。
+     * 保证该记录始终存在，使首次修改用户名走 UPDATE 而非 INSERT，
+     * 从根本上避免唯一键冲突导致的 500。
+     */
+    @PostConstruct
+    public void initDefaultConfig() {
+        if (!appConfigRepository.existsById("displayName")) {
+            appConfigRepository.save(new AppConfig("displayName",
+                    env.getProperty("taskcopilot.display-name", "USER")));
+        }
+        cachedDisplayName = getDisplayName();
     }
 
     /**

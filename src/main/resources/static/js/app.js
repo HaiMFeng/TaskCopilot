@@ -5,7 +5,7 @@ const {createApp, ref, reactive, computed, onMounted, onBeforeUnmount, nextTick}
 const {ElMessage, ElMessageBox} = ElementPlus;
 
 // 前端 JS 版本号（修改后请同步递增，便于辨识加载版本）
-const APP_JS_VERSION = '20260805.17';
+const APP_JS_VERSION = '20260805.18';
 
 /** 任务顶级字段（不放进 config，提交时提升到 payload 顶层） */
 const TOP_LEVEL_FIELDS = new Set(['command', 'workingDir', 'timeoutSeconds']);
@@ -295,7 +295,7 @@ const ConfigFields = {
                 <template v-else-if="f.type === 'appFile'">
                     <div class="path-row">
                         <el-input :model-value="val(f)"
-                                  :placeholder="f.help || '请输入应用路径，如 C:/Program Files/xxx/app.exe'"
+                                  :placeholder="f.help || '应用路径'"
                                   @update:model-value="v => onPathInput(f, v)"/>
                         <transition name="slide">
                             <el-button v-if="val(f) && verified[f.name] !== true"
@@ -319,7 +319,7 @@ const ConfigFields = {
                 <template v-else-if="f.type === 'process'">
                     <div class="path-row">
                         <el-input :model-value="val(f)"
-                                  :placeholder="f.help || '输入进程名，如 notepad.exe'"
+                                  :placeholder="f.help || '进程名'"
                                   @update:model-value="v => set(f, v)"/>
                         <el-button class="path-verify-btn"
                                    @click="openProcessPicker(f)">选择进程</el-button>
@@ -345,7 +345,7 @@ const ConfigFields = {
                     </div>
                 </el-dialog>
 
-                <div v-if="f.help && f.type !== 'text' && f.type !== 'textarea' && f.type !== 'appFile' && f.type !== 'process'" class="field-help">{{ f.help }}</div>
+                <div v-if="f.help" class="field-help">{{ f.help }}</div>
             </el-form-item>
 
             <!-- schema 无时间字段的任务类型：滑块作为属性块末尾 -->

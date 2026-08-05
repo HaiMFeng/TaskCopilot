@@ -41,15 +41,15 @@ public class HttpRequestTaskTypeHandler implements TaskTypeHandler {
     @Override
     public List<FieldSchema> configSchema() {
         return List.of(
-                FieldSchema.text("url", "请求地址", true, "例如：https://api.example.com/health"),
+                FieldSchema.text("url", "请求地址", true, "完整地址，含 http(s)://"),
                 FieldSchema.select("method", "方法", List.of(
                         FieldSchema.option("GET", "GET"),
                         FieldSchema.option("POST", "POST"),
                         FieldSchema.option("PUT", "PUT"),
                         FieldSchema.option("DELETE", "DELETE")
                 ), "GET"),
-                FieldSchema.textarea("headers", "请求头", "每行一个，例如：Authorization: Bearer xxx"),
-                FieldSchema.textarea("body", "请求体", "POST/PUT 时填写，JSON 格式"),
+                FieldSchema.textarea("headers", "请求头", "每行一个，如 Authorization: x"),
+                FieldSchema.textarea("body", "请求体", "POST/PUT 时填，JSON 格式"),
                 FieldSchema.time("time", "执行时间", "08:30")
         );
     }

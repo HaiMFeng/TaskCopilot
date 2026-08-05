@@ -36,8 +36,8 @@ public class RunCommandTaskTypeHandler implements TaskTypeHandler {
     @Override
     public List<FieldSchema> configSchema() {
         return List.of(
-                FieldSchema.textarea("command", "命令", true, "例如：ping 127.0.0.1 或 python main.py"),
-                FieldSchema.text("workingDir", "工作目录", false, "可选，留空使用默认目录"),
+                FieldSchema.textarea("command", "命令", true, "如 ping 127.0.0.1"),
+                FieldSchema.text("workingDir", "工作目录", false, "可选，留空用默认目录"),
                 FieldSchema.number("timeoutSeconds", "超时（秒）", 1, 86400, 60),
                 FieldSchema.time("time", "执行时间", "08:30")
         );

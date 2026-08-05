@@ -41,7 +41,7 @@ public class OpenAppTaskTypeHandler implements TaskTypeHandler {
     @Override
     public List<FieldSchema> configSchema() {
         return List.of(
-                FieldSchema.appFile("appPath", "应用", "手动填写 .exe 程序或 .lnk 快捷方式的完整路径"),
+                FieldSchema.appFile("appPath", "应用", "填写 .exe 或 .lnk 路径"),
                 FieldSchema.text("args", "启动参数", false, "可选，例如 --new-window"),
                 FieldSchema.time("time", "执行时间", "08:30")
         );

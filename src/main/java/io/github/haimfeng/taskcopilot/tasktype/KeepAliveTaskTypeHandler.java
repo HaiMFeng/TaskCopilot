@@ -54,9 +54,9 @@ public class KeepAliveTaskTypeHandler implements TaskTypeHandler {
     public List<FieldSchema> configSchema() {
         return List.of(
                 FieldSchema.process("processName", "进程名",
-                        "要守护的进程名，如 notepad.exe，可点击「选择进程」从运行列表选取"),
+                        "进程名，如 notepad.exe"),
                 FieldSchema.appFile("appPath", "应用",
-                        "进程未运行时要启动的程序或快捷方式（.exe / .lnk）"),
+                        "未运行时启动的程序/快捷方式"),
                 FieldSchema.text("args", "启动参数", false, "可选，例如 --minimized"),
                 FieldSchema.number("maxWaitSeconds", "最大启动延时（秒）", 3, 120, 10),
                 FieldSchema.time("time", "执行时间", "08:30")

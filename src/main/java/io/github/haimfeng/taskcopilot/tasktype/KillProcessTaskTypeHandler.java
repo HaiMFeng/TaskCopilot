@@ -39,7 +39,7 @@ public class KillProcessTaskTypeHandler implements TaskTypeHandler {
     @Override
     public List<FieldSchema> configSchema() {
         return List.of(
-                FieldSchema.process("processName", "进程名", "输入进程名，如 notepad.exe，也可点击「选择进程」从运行列表中选取"),
+                FieldSchema.process("processName", "进程名", "进程名，如 notepad.exe"),
                 FieldSchema.select("matchMode", "匹配方式",
                         List.of(FieldSchema.option("exact", "精确匹配"), FieldSchema.option("wildcard", "模糊匹配（通配符）")),
                         "exact"),

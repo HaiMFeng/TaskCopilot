@@ -113,15 +113,19 @@
                                 <span class="btn-ico">＋</span><span class="btn-txt">新建任务</span>
                             </button>
                         </div>
-                        <ul class="task-list">
+                        <transition-group name="list" tag="ul" class="task-list">
                             <template v-for="(t, idx) in tasks" :key="t.id">
-                                <!-- 启动任务与定时任务之间的分组分隔线 -->
-                                <li v-if="showGroupDivider(idx)" class="task-group-divider" aria-hidden="true">
-                                    <span>定时运行</span>
-                                </li>
                                 <li class="task-item"
-                                    :class="{ selected: t.id === selectedTaskId, startup: isStartupTask(t) }"
-                                    @click="selectTaskMobile(t.id)">
+                                    :class="{ selected: t.id === selectedTaskId, dragging: dragIndex === idx, startup: isStartupTask(t),
+                                              'group-start': showGroupDivider(idx),
+                                              'drop-before': dragIndex !== -1 && hoverIndex === idx && hoverIndex < dragIndex,
+                                              'drop-after': dragIndex !== -1 && hoverIndex === idx && hoverIndex > dragIndex }"
+                                    :data-idx="idx"
+                                    draggable="false"
+                                    @pointerdown="onPointerDown($event, idx)"
+                                    @pointermove="onPointerMove($event, idx)"
+                                    @pointerup="onPointerUp($event, idx)"
+                                    @pointercancel="onPointerUp($event, idx)">
                                     <span class="task-status" :class="statusClass(t)"></span>
                                     <span class="task-name">{{ t.name }}</span>
                                     <span class="task-time" :class="{ startup: isStartupTask(t) }">{{ taskTime(t) }}</span>
@@ -132,14 +136,14 @@
                                     </span>
                                 </li>
                             </template>
-                        </ul>
+                        </transition-group>
                         <div v-if="tasks.length === 0" class="empty-hint">该日程表下暂无任务</div>
                     </aside>
 
                     <transition name="slide-up">
                         <section v-if="showMobileDetail && selectedTask" class="task-detail-pane mobile-detail">
                             <div class="mobile-detail-bar">
-                                <button class="btn-ghost" @click="closeMobileDetail">← 返回列表</button>
+                                <button class="btn-ghost" @click="closeMobileDetail"><i class="fa-solid fa-arrow-left"></i> 返回列表</button>
                             </div>
                             <!-- 详情表单（复用桌面端逻辑） -->
                             <el-form class="detail-form" label-position="top" @submit.prevent="saveDetail">
@@ -199,14 +203,13 @@
                     </div>
                     <p class="pane-hint">启动运行任务置顶并按顺序执行，可拖拽调整；定时任务按执行时间排序，同一时间内可拖拽。</p>
 
-                    <ul class="task-list">
+                    <transition-group name="list" tag="ul" class="task-list">
                         <template v-for="(t, idx) in tasks" :key="t.id">
-                            <!-- 启动任务与定时任务之间的分组分隔线 -->
-                            <li v-if="showGroupDivider(idx)" class="task-group-divider" aria-hidden="true">
-                                <span>定时运行</span>
-                            </li>
                             <li class="task-item"
-                                :class="{ selected: t.id === selectedTaskId, dragging: dragIndex === idx, startup: isStartupTask(t) }"
+                                :class="{ selected: t.id === selectedTaskId, dragging: dragIndex === idx, startup: isStartupTask(t),
+                                          'group-start': showGroupDivider(idx),
+                                          'drop-before': dragIndex !== -1 && hoverIndex === idx && hoverIndex < dragIndex,
+                                          'drop-after': dragIndex !== -1 && hoverIndex === idx && hoverIndex > dragIndex }"
                                 :draggable="canDrag(idx)"
                                 @click="selectTask(t.id)"
                                 @dragstart="onDragStart(idx)"
@@ -224,7 +227,7 @@
                                 </span>
                             </li>
                         </template>
-                    </ul>
+                    </transition-group>
                     <div v-if="tasks.length === 0" class="empty-hint">该日程表下暂无任务</div>
                 </aside>
 
@@ -660,7 +663,7 @@
 <script src="/vendor/index.full.min.js"></script>
 <script src="/vendor/dayjs.min.js"></script>
 <script src="/js/api.js"></script>
-<script>window.__APP_HTML_VERSION__ = '20260805.16';</script>
-<script src="/js/app.js?v=20260805.16"></script>
+<script>window.__APP_HTML_VERSION__ = '20260805.17';</script>
+<script src="/js/app.js?v=20260805.17"></script>
 </body>
 </html>

@@ -331,7 +331,12 @@ body {
 }
 .task-item:hover { border-color: #3a4252; }
 .task-item.selected { border-color: var(--accent); background: #1a2233; }
-.task-item.dragging { opacity: .4; }
+.task-item.dragging {
+    opacity: .45;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px rgba(79, 140, 255, .35);
+    cursor: grabbing;
+}
 .drag-handle { color: var(--text-dim); cursor: grab; font-size: 14px; user-select: none; }
 /* 无同一时间的任务可换位时，手柄置灰且不显示可拖拽指针 */
 .drag-handle.disabled { opacity: .25; cursor: default; }
@@ -358,25 +363,56 @@ body {
     background: rgba(64, 158, 255, .12);
     letter-spacing: 0;
 }
-/* 启动任务与定时任务之间的分组分隔线 */
-.task-group-divider {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin: 4px 2px 2px;
+/* 启动任务与定时任务之间的分组分隔线：画在首个定时任务项上方，
+   用伪元素实现、不占列表布局，因此运行方式变更重排时不会触发异常的 move 动画 */
+.task-item.group-start { margin-top: 22px; }
+.task-item.group-start::before {
+    content: "定时运行";
+    position: absolute;
+    top: -20px;
+    left: 0;
+    right: 0;
+    text-align: center;
     font-size: 11px;
     color: var(--text-dim);
+    border-top: 1px solid var(--border);
+    padding-top: 4px;
+    letter-spacing: .5px;
     user-select: none;
-    list-style: none;
 }
-.task-group-divider::before,
-.task-group-divider::after {
+/* 拖拽悬停指示线优先于分隔线文字：覆盖 content，仅显示高亮条 */
+.task-item.drop-before::before { content: ""; }
+
+/* 任务列表拖拽排序动画（transition-group "list"）：位置变化时平滑滑动 */
+.list-move { transition: transform .28s cubic-bezier(.55, 0, .1, 1); }
+.list-enter-active,
+.list-leave-active { transition: opacity .28s ease, transform .28s ease; }
+.list-enter-from,
+.list-leave-to { opacity: 0; transform: translateY(-6px); }
+
+/* 拖动时的插入位置指示线：用 task-item 的伪元素绘制，不占据列表布局，
+   因此指示线出现/消失不会改变其它表项位置，避免“移回原位”的生硬感。
+   伪元素始终渲染，仅通过 opacity/transform 切换，配合 transition 让出现与消失都有动画 */
+.task-item { position: relative; }
+.task-item::before,
+.task-item::after {
     content: "";
-    flex: 1;
-    height: 1px;
-    background: var(--border);
+    position: absolute;
+    left: 2px;
+    right: 2px;
+    height: 2px;
+    background: var(--accent);
+    border-radius: 2px;
+    box-shadow: 0 0 6px rgba(79, 140, 255, .7);
+    opacity: 0;
+    transform: scaleX(.4);
+    transition: opacity .18s ease, transform .18s ease;
+    pointer-events: none;
 }
-.task-group-divider > span { flex-shrink: 0; letter-spacing: .5px; }
+.task-item::before { top: -1px; }
+.task-item::after { bottom: -1px; }
+.task-item.drop-before::before,
+.task-item.drop-after::after { opacity: 1; transform: scaleX(1); }
 /* 运行方式滑块与说明文字同行：滑块在左，提示在右 */
 .trigger-mode-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 /* 表单中运行方式滑块右侧的说明文字 */
@@ -1121,6 +1157,15 @@ body {
 @media (max-width: 768px) {
     body { overflow: hidden; }
 
+    /* 移动端：禁止长按选中文字/呼出菜单；touch-action:none 让 Pointer 拖拽
+       能抢到手势（不被浏览器垂直滚动接管），轻点选中仍正常 */
+    .task-item {
+        -webkit-user-select: none;
+        user-select: none;
+        -webkit-touch-callout: none;
+        touch-action: none;
+    }
+
     /* 顶栏 */
     .topbar {
         padding: 0 10px;
@@ -1372,7 +1417,8 @@ body {
 
     .task-item { padding: 8px 10px; gap: 6px; font-size: 12px; -webkit-tap-highlight-color: transparent; }
     .task-time { font-size: 10px; padding: 1px 5px; }
-    .task-group-divider { font-size: 10px; margin: 2px 0; }
+    .task-item.group-start { margin-top: 20px; }
+    .task-item.group-start::before { font-size: 10px; }
     .task-name { font-size: 12px; }
     .task-type-badge { font-size: 10px; padding: 1px 5px; }
     .drag-handle { font-size: 12px; }

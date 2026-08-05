@@ -5,7 +5,7 @@ const {createApp, ref, reactive, computed, onMounted, onBeforeUnmount, nextTick}
 const {ElMessage, ElMessageBox} = ElementPlus;
 
 // 前端 JS 版本号（修改后请同步递增，便于辨识加载版本）
-const APP_JS_VERSION = '20260805.16';
+const APP_JS_VERSION = '20260805.17';
 
 /** 任务顶级字段（不放进 config，提交时提升到 payload 顶层） */
 const TOP_LEVEL_FIELDS = new Set(['command', 'workingDir', 'timeoutSeconds']);
@@ -1066,6 +1066,7 @@ createApp({
         //  - 定时任务以触发时间为主序，仅能调整同一时间内的先后；
         //  - 两段之间不允许互相拖拽。
         const dragIndex = ref(-1);
+        const hoverIndex = ref(-1);
 
         /** 两个任务是否处于同一可交换区间 */
         function sameDragZone(a, b) {
@@ -1086,24 +1087,89 @@ createApp({
 
         function onDragStart(idx) { dragIndex.value = idx; }
         function onDragOver(idx) {
-            if (dragIndex.value === -1 || dragIndex.value === idx) return;
-            // 跨分组或跨执行时间不允许调整顺序，直接忽略此次移动
-            if (!sameDragZone(tasks.value[dragIndex.value], tasks.value[idx])) return;
-            const arr = tasks.value.slice();
-            const [moved] = arr.splice(dragIndex.value, 1);
-            arr.splice(idx, 0, moved);
-            tasks.value = arr;
-            dragIndex.value = idx;
+            if (dragIndex.value === -1) return;
+            // 跨分组或跨执行时间不允许调整顺序，清除目标位置（松手不重排）
+            if (!sameDragZone(tasks.value[dragIndex.value], tasks.value[idx])) {
+                hoverIndex.value = -1;
+                return;
+            }
+            // 拖回原位（含起始项自身）：记录为原位，松手后顺序不变
+            if (dragIndex.value === idx) {
+                hoverIndex.value = idx;
+                return;
+            }
+            // 仅记录悬停目标位置，不在拖动期间重排数组（避免卡顿/重影）
+            hoverIndex.value = idx;
         }
         async function onDragEnd() {
-            if (dragIndex.value === -1) return;
+            const from = dragIndex.value;
+            const to = hoverIndex.value;
+            // 先复位拖拽状态：移除 dragging 类后 transition 恢复，后续重排才能产生滑动动画
             dragIndex.value = -1;
+            hoverIndex.value = -1;
+            if (from !== -1 && to !== -1 && from !== to
+                    && sameDragZone(tasks.value[from], tasks.value[to])) {
+                const arr = tasks.value.slice();
+                const [moved] = arr.splice(from, 1);
+                arr.splice(to, 0, moved);
+                tasks.value = arr;
+            }
             try {
                 await API.reorderTasks(tasks.value.map((t) => t.id));
             } catch (e) {
                 ElMessage.error('排序保存失败：' + e.message);
                 await loadTasks();
             }
+        }
+
+        /* ---------------- 移动端触摸拖拽（Pointer 事件） ---------------- */
+        // 桌面端使用 HTML5 拖拽 API（仅鼠标），触摸设备不支持；
+        // 移动端改用 Pointer 事件，且需区分「轻点选中」与「拖动排序」。
+        let pointerStart = null;     // { x, y, idx }
+        let pointerDragging = false;
+        const DRAG_THRESHOLD = 8;    // 超过该位移（px）判定为拖拽而非点击
+
+        function onPointerDown(e, idx) {
+            if (!canDrag(idx)) return;
+            pointerStart = { x: e.clientX, y: e.clientY, idx };
+            pointerDragging = false;
+        }
+        function updateHoverByPoint(listEl, clientY) {
+            const items = listEl ? listEl.querySelectorAll('.task-item[data-idx]') : [];
+            for (const el of items) {
+                const r = el.getBoundingClientRect();
+                if (clientY >= r.top && clientY <= r.bottom) {
+                    const idx = parseInt(el.getAttribute('data-idx'), 10);
+                    if (!Number.isNaN(idx)) onDragOver(idx);
+                    return;
+                }
+            }
+        }
+        function onPointerMove(e, idx) {
+            if (!pointerStart) return;
+            if (!pointerDragging) {
+                const dx = e.clientX - pointerStart.x;
+                const dy = e.clientY - pointerStart.y;
+                if (Math.hypot(dx, dy) < DRAG_THRESHOLD) return;
+                // 超过阈值 → 进入拖拽模式
+                pointerDragging = true;
+                dragIndex.value = pointerStart.idx;
+                try { e.target.setPointerCapture(e.pointerId); } catch (_) {}
+            }
+            const listEl = e.currentTarget.closest('.task-list');
+            updateHoverByPoint(listEl, e.clientY);
+        }
+        function onPointerUp(e, idx) {
+            if (!pointerStart) return;
+            if (pointerDragging) {
+                onDragEnd();
+            } else {
+                // 未达阈值，视为轻点 → 选中详情
+                const t = tasks.value[pointerStart.idx];
+                if (t) selectTaskMobile(t.id);
+            }
+            pointerStart = null;
+            pointerDragging = false;
         }
 
         /* ---------------- 轮询 ---------------- */
@@ -1508,7 +1574,8 @@ createApp({
             selectSchedule, createSchedule, activateSchedule, deleteSchedule,
             selectTask, toggleTask, saveDetail, runTask, viewHistory, deleteTask,
             openCreateTask, submitCreate,
-            dragIndex, onDragStart, onDragOver, onDragEnd, canDrag,
+            dragIndex, hoverIndex, onDragStart, onDragOver, onDragEnd, canDrag,
+            onPointerDown, onPointerMove, onPointerUp,
             // 运行方式（定时运行 / 启动运行）
             triggerModeOptions, isStartupTask, showGroupDivider, hasStartupTasks,
             // 仪表盘

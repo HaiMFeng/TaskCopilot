@@ -1,0 +1,291 @@
+/* TaskCopilot 移动端响应式样式（由 app.css 拆分）。
+   仅包含 @media (max-width: 768px) 适配规则，不依赖其它文件顺序。 */
+
+@media (max-width: 768px) {
+    body { overflow: hidden; }
+
+    /* 移动端：禁止长按选中文字/呼出菜单；touch-action:none 让 Pointer 拖拽
+       能抢到手势（不被浏览器垂直滚动接管），轻点选中仍正常 */
+    .task-item {
+        -webkit-user-select: none;
+        user-select: none;
+        -webkit-touch-callout: none;
+        touch-action: none;
+    }
+
+    /* 顶栏 */
+    .topbar {
+        padding: 0 10px;
+        gap: 8px;
+        height: 50px;
+        /* 始终单行，滑块类别增多时由内部滚动承载，不挤压右侧状态 */
+        flex-wrap: nowrap;
+    }
+    .brand { flex: 0 0 auto; }
+    .topbar-right { flex: 0 0 auto; margin-left: auto; }
+    .brand-name { display: none; }
+    .brand .logo { font-size: 18px; }
+    /* 移动端隐藏滑块，改用选择框 */
+    .mode-switch-scroll { display: none; }
+    .mode-select-mobile {
+        display: block;
+        flex: 1 1 auto;
+        min-width: 0;
+    }
+    .mode-select-mobile .el-select { width: 100%; }
+
+    /* 移动端：运行方式滑块与提示改为纵向排列，滑块占满宽度，避免溢出/错位 */
+    .trigger-mode-row { flex-direction: column; align-items: stretch; gap: 8px; }
+    .trigger-mode-switch { display: flex; width: 100%; }
+    .trigger-mode-switch .mode-option { flex: 1 1 0; padding: 8px 0; text-align: center; }
+    .field-hint { text-align: left; }
+    .state-pill { font-size: 11px; padding: 4px 8px; line-height: 1; }
+
+    /* 移动端顶部选择框已显示当前界面名，隐藏各视图内重复的界面标题 */
+    .schedule-rail-head .section-title { display: none; }
+    .terminal-toolbar-left span { display: none; }
+    .screen-toolbar-left > span:not(.screen-meta) { display: none; }
+    .placeholder-card h2 { display: none; }
+
+    /* 主区域：禁止横向溢出，日程表视图纵向排列 */
+    #mainView { overflow: hidden; }
+    .mode-view {
+        flex: 1;
+        min-height: 0;
+        min-width: 0;
+        overflow: hidden;
+        flex-direction: column;
+    }
+    /* 仪表盘独立滚动，不需要 overflow:hidden */
+    .dashboard-view { overflow-y: auto; }
+    /* 占位卡片居中 */
+    .mode-view:not(.dashboard-view):has(.placeholder-card) {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    /* 仪表盘 */
+    .dashboard-view {
+        padding: 12px 14px;
+        gap: 12px;
+        padding-bottom: 50px;
+        overflow-y: auto;
+    }
+    .dash-topbar { flex-direction: column; gap: 6px; }
+    .dash-time { font-size: 36px; letter-spacing: 2px; }
+    .dash-host-info { text-align: left; }
+    .dash-cards { grid-template-columns: 1fr; gap: 10px; }
+    .dash-card { padding: 12px 14px; gap: 10px; }
+    .dash-big { font-size: 18px; }
+    .dash-row2 { grid-template-columns: 1fr; gap: 10px; }
+
+    /* DNS / IP 标签过长时横向滚动 */
+    .dash-stat-val {
+        min-width: 0;
+        overflow-x: auto;
+        display: flex;
+        flex-wrap: nowrap;
+        -webkit-overflow-scrolling: touch;
+    }
+    .nic-ip { white-space: nowrap; flex-shrink: 0; }
+
+    /* 日程表视图：纵向堆叠 */
+    .schedule-rail {
+        width: 100%;
+        flex-shrink: 0;
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 12px;
+        border-right: none;
+        border-bottom: 1px solid var(--border);
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    .schedule-rail-head {
+        flex-shrink: 0;
+        margin-bottom: 0;
+        gap: 8px;
+        display: flex;
+        align-items: center;
+    }
+    /* 移动端：新建日程表按钮仅保留图标，去除「新建」文字 */
+    .schedule-rail-head .btn-create-schedule .btn-txt {
+        display: none;
+    }
+    /* 移动端：让新建按钮与日程表项高度一致 */
+    .schedule-rail-head .btn-create-schedule.btn-sm {
+        padding: 6px 10px;
+        font-size: 12px;
+        line-height: 1.5;
+    }
+    /* 移动端：关于页 */
+    .about-view {
+        overflow-y: auto;            /* 覆盖 .mode-view 的 overflow:hidden，恢复滚动 */
+        -webkit-overflow-scrolling: touch;
+        padding: 16px 0;
+    }
+    .about-card { margin: 0 14px; padding: 20px 18px; }
+    .about-data-card { margin: 16px 14px 0; padding: 18px; }
+    /* 标签保持固定列宽，版本号仅在其自身列内（芯片边界）换行，不侵入标签列 */
+    .about-label { width: 48px; flex-shrink: 0; }
+    /* 版本号：整体在一行；若过窄则仅在芯片边界整段换行，不出现半截换行 */
+    .about-value.about-version { flex-wrap: wrap; gap: 6px 10px; font-size: 13px; }
+    .about-version .ver-chip { white-space: nowrap; }
+    /* 三个链接均分一行，避免 2+1 不协调换行 */
+    .about-links {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 8px;
+    }
+    .about-link { justify-content: center; padding: 9px 4px; font-size: 12px; }
+    .schedule-list {
+        display: flex;
+        flex-direction: row;
+        gap: 6px;
+    }
+    .schedule-item {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 10px;
+        white-space: nowrap;
+        font-size: 12px;
+        flex-shrink: 0;
+        -webkit-tap-highlight-color: transparent;
+    }
+    .schedule-count { padding-left: 0; white-space: nowrap; }
+    /* 移动端：页面布局紧凑，不显示「暂无日程表」提示 */
+    .schedule-empty { display: none; }
+
+    .split {
+        display: flex;
+        flex-direction: column;
+        flex: 1;
+        min-height: 0;
+        min-width: 0;
+        overflow: hidden;
+        position: relative;
+    }
+    .task-list-pane {
+        width: 100%;
+        min-width: 0;
+        max-height: 35vh;
+        border-right: none;
+        border-bottom: 1px solid var(--border);
+        padding: 10px 12px;
+        flex-shrink: 0;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    }
+    .pane-head {
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 6px;
+    }
+    .pane-head .section-title {
+        font-size: 12px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        flex: 1;
+        min-width: 0;
+    }
+    .pane-head .btn-primary {
+        flex-shrink: 0;
+        font-size: 11px;
+        padding: 6px 10px;
+    }
+    .pane-hint { font-size: 11px; margin: 4px 0 8px; }
+    .task-list { overflow-y: auto; flex: 1; }
+
+    .task-detail-pane {
+        flex: 1;
+        min-height: 0;
+        padding: 12px 14px;
+        padding-bottom: 40px;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    /* 移动端：任务列表选中后收起 */
+    .task-list-pane.collapsed { display: none; }
+    /* 移动端详情从底部弹出 */
+    .mobile-detail {
+        position: absolute;
+        inset: 0;
+        z-index: 10;
+        background: var(--bg);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        padding: 0;
+    }
+    .mobile-detail-bar {
+        padding: 10px 16px;
+        border-bottom: 1px solid var(--border);
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+    }
+    .mobile-detail .detail-form {
+        flex: 1 1 0;
+        overflow-y: auto;
+        padding: 16px;
+        padding-bottom: 40px;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+        /* 覆盖桌面端 flex 布局，防止子元素被压缩 */
+        display: block !important;
+        max-width: none !important;
+    }
+    .mobile-detail .detail-form::-webkit-scrollbar { display: none; }
+    /* 移动端表单内部元素保持正常流，补回间距 */
+    .mobile-detail .detail-form .detail-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+    .mobile-detail .detail-form .detail-actions { display: flex; gap: 8px; }
+    .mobile-detail .detail-form .el-form-item { display: block; width: 100%; margin-bottom: 14px; }
+    .mobile-detail .detail-form .config-fields { display: block; margin-bottom: 14px; }
+    .mobile-detail .detail-form .detail-meta { margin-bottom: 14px; }
+    .mobile-detail .detail-form .result-box { margin-bottom: 14px; }
+    .mobile-detail .detail-form .btn-danger-ghost { display: block; width: 100%; }
+    .mobile-detail .detail-form .result-meta { margin-left: 0; }
+    /* 新建任务按钮与列表间距 */
+    .pane-head { margin-bottom: 8px; }
+    /* 详情滑入动画 */
+    .slide-up-enter-active { transition: transform .3s ease; }
+    .slide-up-leave-active { transition: transform .25s ease; }
+    .slide-up-enter-from,
+    .slide-up-leave-to { transform: translateY(100%); }
+
+    .task-item { padding: 8px 10px; gap: 6px; font-size: 12px; -webkit-tap-highlight-color: transparent; }
+    .task-time { font-size: 10px; padding: 1px 5px; }
+    .task-item.group-start { margin-top: 20px; }
+    .task-item.group-start::before { font-size: 10px; }
+    .task-name { font-size: 12px; }
+    .task-type-badge { font-size: 10px; padding: 1px 5px; }
+    .drag-handle { font-size: 12px; }
+
+    /* 移动端全局消除点击方框 */
+    .btn-primary, .btn-ghost, .btn-danger-ghost, button {
+        -webkit-tap-highlight-color: transparent;
+    }
+
+    /* 弹窗 */
+    .el-dialog { width: calc(100vw - 20px) !important; margin: 10px !important; }
+
+    /* 版本标识 */
+    .version-badge { right: 6px; bottom: 6px; left: auto; font-size: 10px; padding: 3px 6px; gap: 6px; }
+
+    /* 终端输入栏：移动端按钮只显示图标，节省空间 */
+    .terminal-input-bar .btn-label { display: none; }
+    .terminal-input-bar .btn-sm { padding-left: 10px; padding-right: 10px; }
+
+    /* 占位卡片 */
+    .placeholder-icon { font-size: 32px; }
+    .placeholder-card h2 { font-size: 16px; }
+}

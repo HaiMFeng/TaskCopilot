@@ -4,34 +4,8 @@
 const {createApp, ref, reactive, computed, onMounted, onBeforeUnmount, nextTick} = Vue;
 const {ElMessage, ElMessageBox} = ElementPlus;
 
-// 前端 JS 版本号（修改后请同步递增，便于辨识加载版本）
-const APP_JS_VERSION = '20260805.20';
-
-/** 任务顶级字段（不放进 config，提交时提升到 payload 顶层） */
-const TOP_LEVEL_FIELDS = new Set(['command', 'workingDir', 'timeoutSeconds']);
-
-function fmtTime(inst) {
-    if (!inst) return '—';
-    const d = new Date(inst);
-    if (isNaN(d.getTime())) return '—';
-    const pad = (n) => String(n).padStart(2, '0');
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
-
-/** schema 默认值：后端字段名为 defaultValue */
-function schemaDefault(field) {
-    return field.defaultValue != null ? field.defaultValue : '';
-}
-
-/** 依据 schema 构造一份完整的表单模型，避免出现 undefined 绑定 */
-function buildModel(schema, source) {
-    const model = {};
-    (schema || []).forEach((f) => {
-        const v = source ? source[f.name] : undefined;
-        model[f.name] = (v === undefined || v === null) ? schemaDefault(f) : v;
-    });
-    return model;
-}
+// 工具层（APP_JS_VERSION / TOP_LEVEL_FIELDS / fmtTime / schemaDefault / buildModel）
+// 已抽离至 /js/util.js，由 index.html 在 app.js 之前加载并挂载到 window。
 
 /**
  * 动态配置表单组件：依据后端下发的 configSchema 渲染控件。
@@ -609,10 +583,10 @@ createApp({
 
         // 切换类型时保留同名字段已填值（用完整 schema，避免隐藏的 time 字段被丢弃）
         function onTypeChange() {
-            form.config = buildModel(detailFullSchema.value, form.config);
+            form.config = window.buildModel(detailFullSchema.value, form.config);
         }
         function onCreateTypeChange() {
-            createForm.config = buildModel(createFullSchema.value, createForm.config);
+            createForm.config = window.buildModel(createFullSchema.value, createForm.config);
             Object.keys(createFileVerified).forEach((k) => { delete createFileVerified[k]; });
         }
 
@@ -796,7 +770,7 @@ createApp({
                 workingDir: task.workingDir,
                 timeoutSeconds: task.timeoutSeconds,
             });
-            form.config = buildModel(schemaOf(task.typeCode), merged);
+            form.config = window.buildModel(schemaOf(task.typeCode), merged);
             // 载入新任务时重置应用路径校验状态，需用户重新校验方可保存
             Object.keys(appFileVerified).forEach((k) => { delete appFileVerified[k]; });
         }
@@ -825,7 +799,7 @@ createApp({
             const top = {};
             (schema || []).forEach((f) => {
                 const v = config[f.name];
-                if (TOP_LEVEL_FIELDS.has(f.name)) top[f.name] = v;
+                if (window.TOP_LEVEL_FIELDS.has(f.name)) top[f.name] = v;
                 else cfg[f.name] = v;
             });
             return {config: cfg, top};
@@ -944,7 +918,7 @@ createApp({
                     return;
                 }
                 historyText.value = logs.map((l, i) => {
-                    const head = `#${logs.length - i}  ${fmtTime(l.startedAt)}  [${l.status}]  退出码 ${l.exitCode}`;
+                    const head = `#${logs.length - i}  ${window.fmtTime(l.startedAt)}  [${l.status}]  退出码 ${l.exitCode}`;
                     const out = [
                         l.stdout ? `--- stdout ---\n${l.stdout}` : '',
                         l.stderr ? `--- stderr ---\n${l.stderr}` : '',
@@ -986,7 +960,7 @@ createApp({
             createForm.remark = '';
             createForm.triggerMode = 'SCHEDULED';
             createForm.typeCode = taskTypes.value.length ? taskTypes.value[0].typeCode : '';
-            createForm.config = buildModel(schemaOf(createForm.typeCode), {});
+            createForm.config = window.buildModel(schemaOf(createForm.typeCode), {});
             Object.keys(createFileVerified).forEach((k) => { delete createFileVerified[k]; });
             createVisible.value = true;
         }
@@ -1271,7 +1245,7 @@ createApp({
             const jsVer = document.getElementById('jsVer');
             const serverVerEl = document.getElementById('serverVer');
             if (htmlVer) htmlVer.textContent = window.__APP_HTML_VERSION__ || '?';
-            if (jsVer) jsVer.textContent = APP_JS_VERSION;
+            if (jsVer) jsVer.textContent = window.APP_JS_VERSION;
 
             // 获取后端（服务器）版本号
             try {
@@ -1469,7 +1443,7 @@ createApp({
 
         function copyVersions() {
             const htmlV = window.__APP_HTML_VERSION__ || '?';
-            const text = 'HTML ' + htmlV + '  JS ' + APP_JS_VERSION + '  SERVER ' + serverVer.value;
+            const text = 'HTML ' + htmlV + '  JS ' + window.APP_JS_VERSION + '  SERVER ' + serverVer.value;
             if (navigator.clipboard && navigator.clipboard.writeText) {
                 navigator.clipboard.writeText(text).then(() => {
                     ElMessage.success('已复制：' + text);
@@ -1482,7 +1456,7 @@ createApp({
         }
         // 关于页版本号（无论是否开发模式始终可用，点击复制）
         const htmlVer = ref(window.__APP_HTML_VERSION__ || '?');
-        const jsVer = ref(APP_JS_VERSION);
+        const jsVer = ref(window.APP_JS_VERSION);
         const serverVer = ref('?');
         function copyVersion() {
             const text = 'HTML ' + htmlVer.value + '  JS ' + jsVer.value + '  SERVER ' + serverVer.value;
@@ -1589,7 +1563,7 @@ createApp({
             termRunning, termShell, termInput, termOutputRef,
             startTerminal, stopTerminal, sendTerminalCommand, sendTerminalInterrupt,
             taskTime, taskMinute,
-            fmtTime,
+            fmtTime: window.fmtTime,
             // 屏幕查看
             screenUrl, screenQuality, screenSize, screenError,
         };

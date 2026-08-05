@@ -52,7 +52,7 @@ public class SystemController {
     private final org.springframework.core.env.Environment env;
 
     // 后端（服务器）版本号：与前端 HTML/JS 版本号保持同一格式（日期.序号），在此硬编码。
-    private static final String SERVER_VERSION = "20260805.20";
+    private static final String SERVER_VERSION = "20260806.1";
 
     // 网络速率缓存
     private static volatile long cachedNetRx = 0;
